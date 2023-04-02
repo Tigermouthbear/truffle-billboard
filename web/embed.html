@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Truffle Billboard</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+        <link rel="stylesheet" href="style.css">
+    </head>
+
+    <body class="bb-body">
+        <script type="text/javascript" src="billboard.js"></script>
+        <script type="module">
+            import { embed } from "https://npm.tfl.dev/@trufflehq/sdk"
+
+            let groups = [];
+            let curr = 0;
+
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", "http://localhost:8000/config.json");
+            xhr.responseType = "json";
+            xhr.onload = function() {
+                if(xhr.status == 200) {
+                    xhr.response.groups.forEach(function(items) {
+                        let group = createBillboardGroup(items);
+                        group.classList.add("hidden");
+                        groups.push(group);
+                        document.body.appendChild(group);
+                    });
+
+                    groups[curr].classList.remove("hidden");
+
+                    let interval = (xhr.response.interval == undefined ? 30 : xhr.response.interval) * 1000;
+
+                    // we need to wait for groups to load before resizing embed
+                    // we could use a resize observer, but thats pretty new and this works too
+                    // https://stackoverflow.com/questions/61774434/how-to-wait-for-element-to-load-completely-into-dom
+                    setTimeout(function() {
+                        embed.setStyles({
+                            "margin": "12px 0 0 8px"
+                        });
+                        embed.setSize(groups[curr].scrollWidth + "px", "36px");
+                        
+                        if(groups.length > 1) setInterval(focusGroup, interval);
+                    }, 1000);
+                }
+            };
+            xhr.send();
+
+            function focusGroup() {
+                document.querySelector(".bb-parent:not(.hidden)").classList.add("hidden");
+
+                let group = groups[++curr % groups.length];
+                group.classList.remove("hidden");
+                embed.setSize(group.scrollWidth + "px", "36px");
+            }
+        </script>
+    </body>
+</html>

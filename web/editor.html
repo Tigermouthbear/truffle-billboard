@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Truffle Billboard Editor</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+        <link rel="stylesheet" href="style.css">
+        <style>
+.editor-container {
+    display: grid;
+    grid-template-areas: "selection settings" "preview settings";
+    grid-template-rows: 1fr auto;
+    /*grid-template-columns: auto 1fr;*/
+    gap: 0.5em;
+}
+
+.editor-item {
+    padding: 0.5em;
+}
+
+.editor-title {
+    margin: 0 0 0.5em 0;
+    font-size: 0.9em;
+}
+
+#settings {
+    grid-area: settings;
+    background-color: red;
+}
+
+#preview {
+    grid-area: preview;
+    background-color: blue;
+}
+
+#selection {
+    grid-area: selection;
+    background-color: green;
+    display: flex;
+    flex-flow: column;
+}
+
+#selection-content {
+    padding: 0.25em 0 0 0;
+    margin: 0;
+    flex: 1 1 auto;
+}
+
+#selection-content > li {
+    margin: 0 0 0.75em 0;
+    list-style-type: none;
+    background-color: gray;
+    padding: 0.25em;
+}
+
+.selected {
+    border: 1px solid white;
+}
+
+#selection-content > li:hover, #selection > div i:hover {
+    cursor: pointer;
+}
+        </style>
+    </head>
+
+    <body>
+        <div class="editor-container">
+            <div id="selection" class="editor-item">
+                <p class="editor-title">Select Frame</p>
+                <ol id="selection-content"></ol>
+                <div>
+                    <i id="frame-new" class="fa-solid fa-plus"></i>
+                    <div style="float: right;">
+                        <i id="frame-up" class="fa-solid fa-chevron-up"></i>
+                        <i id="frame-down" class="fa-solid fa-chevron-down"></i>
+                        <span style="margin-left: 1em;"></span>
+                        <i id="frame-delete" class="fa-solid fa-trash-can"></i>
+                    </div>
+                </div>
+            </div>
+            <div id="preview" class="editor-item">
+                <p class="editor-title">Preview</p>
+            </div>
+            <div id="settings" class="editor-item">
+                <p class="editor-title">Edit Frame</p>
+                <div id="settings-content">
+
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript" src="billboard.js"></script>
+        <script type="text/javascript">
+            let config;
+            let interval;
+            let groups;
+
+            let curr = 0;
+            let selected = 0;
+
+            let xhr = new XMLHttpRequest();
+            xhr.open("GET", "http://localhost:8000/config.json");
+            xhr.responseType = "json";
+            xhr.onload = function() {
+                if(xhr.status == 200) {
+                    config = xhr.response;
+                    refreshAll();
+                }
+            };
+            xhr.send();
+
+            function refreshAll() {
+                groups = [];
+ 
+                document.querySelectorAll("#preview > .bb-parent, #selection-content > li").forEach(function(node) {
+                    node.remove();
+                });
+
+                if(config.groups.length == 0) return;
+                if(selected >= config.groups.length) selected = config.groups.length - 1;
+                if(curr >= config.groups.length) curr = 0;
+
+                for(let i = 0; i < config.groups.length; i++) {
+                    let group = createBillboardGroup(config.groups[i]);
+
+                    let li = document.createElement("li");
+                    li.appendChild(group.cloneNode(true));
+                    li.addEventListener("click", function() {
+                        selected = i;
+                        document.querySelector("#selection-content > .selected").classList.remove("selected");
+                        li.classList.add("selected");
+
+                        refreshSettings();
+                    });
+                    if(i == selected) li.classList.add("selected");
+
+                    let selection = document.getElementById("selection-content")
+                    selection.appendChild(li);
+                    
+                    group.classList.add("hidden");
+                    groups.push(group);
+                    document.getElementById("preview").appendChild(group);
+                }
+
+                groups[curr].classList.remove("hidden");
+
+                refreshSettings();
+
+                if(interval !== undefined) clearInterval(interval);
+                interval = setInterval(function() {
+                    if(groups.length == 0) return;
+
+                    document.querySelector("#preview > .bb-parent:not(.hidden)").classList.add("hidden");
+
+                    let group = groups[++curr % groups.length];
+                    group.classList.remove("hidden");
+
+                }, (xhr.response.interval == undefined ? 30 : xhr.response.interval) * 1000);
+            }
+
+            function refreshGroup(index) {
+                let group = createBillboardGroup(config.groups[index]);
+
+                document.querySelectorAll("#selection-content > li > .bb-parent")[index].replaceWith(group.cloneNode(true)); 
+
+                if(curr % groups.length !== index) group.classList.add("hidden");
+                groups[index].replaceWith(group);
+                groups[index] = group;
+            }
+
+            function refreshSettings() {
+
+                document.getElementById("settings-content").innerText = JSON.stringify(config.groups[selected], null, 4);
+                console.log("refresh settings " + selected);
+            }
+
+            document.getElementById("frame-new").addEventListener("click", function() {
+                config.groups.push([]);
+                refreshAll();
+            });
+
+            document.getElementById("frame-up").addEventListener("click", function() {
+                if(selected == 0) return;
+                config.groups.swapItems(selected, --selected);
+                refreshAll();
+            });
+
+            document.getElementById("frame-down").addEventListener("click", function() {
+                if(selected == config.groups.length - 1) return;
+                config.groups.swapItems(selected, ++selected);
+                refreshAll();
+            });
+
+            document.getElementById("frame-delete").addEventListener("click", function() {
+                if(selected < curr) curr--;
+                config.groups.splice(selected, 1);
+                refreshAll();
+            });
+
+            Array.prototype.swapItems = function(a, b){
+                this[a] = this.splice(b, 1, this[a])[0];
+                return this;
+            }
+        </script>
+    </body>
+</html>

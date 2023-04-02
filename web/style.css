@@ -1,0 +1,72 @@
+:root {
+    --item-spacing: 0.5em;
+    --item-inner-spacing: calc(var(--item-spacing) / 2);
+    --image-height: 1.2em;
+}
+
+body {
+    font-family: "YouTube Sans", "Roboto", sans-serif;
+}
+
+.bb-body {
+    margin: 0;
+    white-space: nowrap; 
+    overflow: hidden;
+}
+
+.bb-group {
+    display: inline-flex;
+    align-items: center;
+    line-height: 0;
+}
+
+.bb-group > * {
+    flex: 0 0 auto;
+}
+
+.bb-group > p {
+    margin: 0 var(--item-inner-spacing) 0 var(--item-inner-spacing);
+}
+
+.bb-group > img {
+    height: var(--image-height);
+    margin: 0 var(--item-inner-spacing) 0 var(--item-inner-spacing);
+}
+
+.bb-group > i {
+    font-size: var(--image-height);
+    margin: 0 var(--item-inner-spacing) 0 var(--item-inner-spacing);
+}
+
+.bb-group > a {
+    color: inherit;
+    text-decoration: none;
+    height: 100%;
+}
+
+.bb-parent {
+    padding: 0 var(--item-spacing) 0 var(--item-spacing);
+    height: 36px;
+
+    color: #0f0f0f;
+    background-color: #f2f2f2;
+    border-radius: 10em;
+}
+
+.bb-body > .bb-parent {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* This is a hack to guess the current youtube theme until truffle embeds support getting it directly */
+@media (prefers-color-scheme: dark) {
+    .bb-parent {
+        color: #f1f1f1;
+        background-color: #272727;
+    }
+}
+
+.hidden {
+    display: none;
+}
