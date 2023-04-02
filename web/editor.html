@@ -209,12 +209,16 @@ input, select {
             xhr.send();
 
             function refreshAll() {
-                document.getElementById("interval-input").value = config.interval;
-
+                // clear everything
                 groups = [];
-                document.querySelectorAll("#preview > .bb-parent, #frames-content > li").forEach(function(node) {
+                document.querySelectorAll("#preview > .bb-parent, #frames-content > li, #items-content > li").forEach(function(node) {
                     node.remove();
                 });
+                document.querySelectorAll(".setting, #icon-help-text").forEach(function(node) {
+                    node.classList.add("hidden");
+                });
+
+                document.getElementById("interval-input").value = config.interval;
 
                 if(config.groups.length == 0) return;
 
@@ -284,6 +288,9 @@ input, select {
                 document.querySelectorAll("#items-content > li").forEach(function(node) {
                     node.remove();
                 });
+                document.querySelectorAll(".setting, #icon-help-text").forEach(function(node) {
+                    node.classList.add("hidden");
+                });
 
                 if(selectedFrame == -1) return;
 
@@ -331,9 +338,9 @@ input, select {
 
             function refreshSettings() {
                 // make sure all settings are hidden when no item is selected (checked after all hidden)
-                let optionals = document.getElementsByClassName("setting");
-                for(let i = 0; i < optionals.length; i++) optionals[i].classList.add("hidden");
-                document.getElementById("icon-help-text").classList.add("hidden");
+                document.querySelectorAll(".settting, #icon-help-text").forEach(function(node) {
+                    node.classList.add("hidden");
+                });
 
                 if(selectedFrame == -1 || selectedItem == -1) return;
 
