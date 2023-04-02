@@ -6,69 +6,112 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
         <link rel="stylesheet" href="style.css">
         <style>
+body {
+    color: var(--text-color);
+    background-color: var(--body-bg-color);
+}
+
 .editor-container {
     display: grid;
-    grid-template-areas: "selection settings" "preview settings";
-    grid-template-rows: 1fr auto;
-    /*grid-template-columns: auto 1fr;*/
+    grid-template-areas: "frames items settings" "preview items other";
+    grid-template-rows: 1fr auto auto;
+    grid-template-columns: 30% 30% auto;
     gap: 0.5em;
 }
 
 .editor-item {
     padding: 0.5em;
+    border-radius: 0.25em;
 }
 
-.editor-title {
-    margin: 0 0 0.5em 0;
-    font-size: 0.9em;
+#other-settings {
+    grid-area: other;
 }
 
 #settings {
     grid-area: settings;
-    background-color: red;
-}
-
-#preview {
-    grid-area: preview;
-    background-color: blue;
-}
-
-#selection {
-    grid-area: selection;
-    background-color: green;
     display: flex;
     flex-flow: column;
 }
 
-#selection-content {
-    padding: 0.25em 0 0 0;
-    margin: 0;
+#settings-content {
     flex: 1 1 auto;
 }
 
-#selection-content > li {
+#items {
+    grid-area: items;
+}
+
+#preview {
+    grid-area: preview;
+}
+
+#frames {
+    grid-area: frames;
+}
+
+.editable-list {
+    display: flex;
+    flex-flow: column;
+}
+
+.editable-list > ol {
+    flex: 1 1 auto;
+    padding: 0.25em 0 0 0;
+    margin: 0;
+}
+
+.editable-list > ol > li {
     margin: 0 0 0.75em 0;
     list-style-type: none;
-    background-color: gray;
-    padding: 0.25em;
+    padding: 0.5em;
+    border: 1px solid gray;
+    border-radius: 0.25em;
 }
 
 .selected {
-    border: 1px solid white;
+    margin: 0 0.5em 0.75em 0.5em !important;
+    border: 1px solid var(--text-color) !important;
 }
 
-#selection-content > li:hover, #selection > div i:hover {
+.editable-list li:hover, .editable-controls i:hover {
     cursor: pointer;
+}
+
+.setting:not(.hidden) {
+    display: flex;
+    flex-flow: row;
+    margin-bottom: 0.5em;
+}
+
+.setting > input[type="text"] {
+    flex: 1 0 auto;
+}
+
+input, select {
+    margin-left: 0.5em;
+
+    color: var(--text-color);
+    background-color: var(--body-bg-color);
+}
+
+#icon-help-text {
+    font-size: 0.8em;
+    margin-top: 0.5em;
+}
+
+#icon-help-text > p {
+    margin: 0;
 }
         </style>
     </head>
 
     <body>
         <div class="editor-container">
-            <div id="selection" class="editor-item">
-                <p class="editor-title">Select Frame</p>
-                <ol id="selection-content"></ol>
-                <div>
+            <fieldset id="frames" class="editor-item editable-list">
+                <legend>Select Frame</legend>
+                <ol id="frames-content"></ol>
+                <div class="editable-controls">
                     <i id="frame-new" class="fa-solid fa-plus"></i>
                     <div style="float: right;">
                         <i id="frame-up" class="fa-solid fa-chevron-up"></i>
@@ -77,16 +120,71 @@
                         <i id="frame-delete" class="fa-solid fa-trash-can"></i>
                     </div>
                 </div>
-            </div>
-            <div id="preview" class="editor-item">
-                <p class="editor-title">Preview</p>
-            </div>
-            <div id="settings" class="editor-item">
-                <p class="editor-title">Edit Frame</p>
-                <div id="settings-content">
-
+            </fieldset>
+            <fieldset id="preview" class="editor-item">
+                <legend>Preview</legend>
+            </fieldset>
+            <fieldset id="items" class="editor-item editable-list">
+                <legend>Select Item</legend>
+                <ol id="items-content"></ol>
+                <div class="editable-controls">
+                    <i id="item-new" class="fa-solid fa-plus"></i>
+                    <div style="float: right;">
+                        <i id="item-up" class="fa-solid fa-chevron-up"></i>
+                        <i id="item-down" class="fa-solid fa-chevron-down"></i>
+                        <span style="margin-left: 1em;"></span>
+                        <i id="item-delete" class="fa-solid fa-trash-can"></i>
+                    </div>
                 </div>
-            </div>
+            </fieldset>
+            <fieldset id="settings" class="editor-item">
+                <legend>Edit Item</legend>
+                <div id="settings-content">
+                    <div class="setting hidden">
+                        <label for="item-type">Type:</label>
+                        <select name="item-type" id="item-type">
+                            <option value="text">Text</option>
+                            <option value="image">Image</option>
+                            <option value="icon">Icon</option>
+                            <option value="text-image">Text and Image</option>
+                            <option value="text-icon">Text and Icon</option>
+                        </select>
+                    </div>
+                    <div class="setting hidden">
+                        <label for="item-link">Link:</label>
+                        <input type="text" name="item-link" id="item-link" placeholder="url">
+                    </div>
+                    <div class="setting setting-optional hidden">
+                        <label for="item-text">Text:</label>
+                        <input type="text" name="item-text" id="item-text" placeholder="text">
+                    </div>
+                    <div class="setting setting-optional hidden">
+                        <label for="item-image">Image:</label>
+                        <input type="text" name="item-image" id="item-image" placeholder="url">
+                    </div>
+                    <div class="setting setting-optional hidden">
+                        <label for="item-icon">*Icon:</label>
+                        <input type="text" name="item-icon" id="item-icon" placeholder="fa class"> 
+                    </div> 
+                    <div class="setting setting-optional hidden">
+                        <label for="item-first">First:</label>
+                        <select name="item-first" id="item-first">
+                            <option value="text">Text</option>
+                            <option value="imgicon">Image/Icon</option>
+                        </select>
+                    </div>
+                </div>
+                <p id="icon-help-text" class="hidden">
+                    *Search <a href="https://fontawesome.com/search?o=r&m=free" target="_blank">fontawesome</a> icons,
+                    then enter the icon's class string.
+                    ex: "fa-solid fa-house" gets you <i class="fa-solid fa-house"></i>
+                </p>
+            </fieldset>
+            <fieldset id="other-settings" class="editor-item">
+                <legend>Other Settings</legend>
+                <label for="interval-input">Interval:</label>
+                <input type="number" name="interval-input" id="interval-input" min="1"> seconds
+            </fieldset>
         </div>
 
         <script type="text/javascript" src="billboard.js"></script>
@@ -95,8 +193,9 @@
             let interval;
             let groups;
 
-            let curr = 0;
-            let selected = 0;
+            let curr = 0; // for preview
+            let selectedFrame = -1;
+            let selectedItem = -1; 
 
             let xhr = new XMLHttpRequest();
             xhr.open("GET", "http://localhost:8000/config.json");
@@ -110,15 +209,18 @@
             xhr.send();
 
             function refreshAll() {
+                document.getElementById("interval-input").value = config.interval;
+
                 groups = [];
- 
-                document.querySelectorAll("#preview > .bb-parent, #selection-content > li").forEach(function(node) {
+                document.querySelectorAll("#preview > .bb-parent, #frames-content > li").forEach(function(node) {
                     node.remove();
                 });
 
                 if(config.groups.length == 0) return;
-                if(selected >= config.groups.length) selected = config.groups.length - 1;
+
                 if(curr >= config.groups.length) curr = 0;
+                if(selectedFrame >= config.groups.length) selectedFrame = config.groups.length - 1;
+                if(selectedFrame == -1 && config.groups.length > 0) selectedFrame = 0;
 
                 for(let i = 0; i < config.groups.length; i++) {
                     let group = createBillboardGroup(config.groups[i]);
@@ -126,16 +228,18 @@
                     let li = document.createElement("li");
                     li.appendChild(group.cloneNode(true));
                     li.addEventListener("click", function() {
-                        selected = i;
-                        document.querySelector("#selection-content > .selected").classList.remove("selected");
+                        selectedFrame = i;
+                        document.querySelectorAll("#frames-content > .selected").forEach(function(node) {
+                            node.classList.remove("selected");
+                        });
                         li.classList.add("selected");
 
-                        refreshSettings();
+                        refreshItems();
                     });
-                    if(i == selected) li.classList.add("selected");
+                    if(i == selectedFrame) li.classList.add("selected");
 
-                    let selection = document.getElementById("selection-content")
-                    selection.appendChild(li);
+                    let frames = document.getElementById("frames-content")
+                    frames.appendChild(li);
                     
                     group.classList.add("hidden");
                     groups.push(group);
@@ -144,8 +248,11 @@
 
                 groups[curr].classList.remove("hidden");
 
-                refreshSettings();
+                refreshItems();
+                refreshInterval();
+            }
 
+            function refreshInterval() {
                 if(interval !== undefined) clearInterval(interval);
                 interval = setInterval(function() {
                     if(groups.length == 0) return;
@@ -155,52 +262,240 @@
                     let group = groups[++curr % groups.length];
                     group.classList.remove("hidden");
 
-                }, (xhr.response.interval == undefined ? 30 : xhr.response.interval) * 1000);
+                }, (config.interval == undefined ? 30 : config.interval) * 1000);
             }
 
-            function refreshGroup(index) {
-                let group = createBillboardGroup(config.groups[index]);
+            // TODO: make this just refresh selected frame/group
+            function refreshFrame() {
+                if(selectedFrame == -1) return;
 
-                document.querySelectorAll("#selection-content > li > .bb-parent")[index].replaceWith(group.cloneNode(true)); 
+                let group = createBillboardGroup(config.groups[selectedFrame]);
 
-                if(curr % groups.length !== index) group.classList.add("hidden");
-                groups[index].replaceWith(group);
-                groups[index] = group;
+                document.querySelectorAll("#frames-content > li > .bb-parent")[selectedFrame].replaceWith(group.cloneNode(true)); 
+
+                if(curr % groups.length !== selectedFrame) group.classList.add("hidden");
+                groups[selectedFrame].replaceWith(group);
+                groups[selectedFrame] = group;
+
+                refreshItems();
+            }
+
+            function refreshItems() {
+                document.querySelectorAll("#items-content > li").forEach(function(node) {
+                    node.remove();
+                });
+
+                if(selectedFrame == -1) return;
+
+                let items = config.groups[selectedFrame];
+                if(selectedItem >= items.length) selectedItem = items.length - 1;
+                if(selectedItem == -1 && items.length > 0) selectedItem = 0;
+
+                for(let i = 0; i < items.length; i++) {
+                    let item = items[i];
+
+                    let li = document.createElement("li");
+                    li.addEventListener("click", function() {
+                        selectedItem = i;
+                        document.querySelectorAll("#items-content > .selected").forEach(function(node) {
+                            node.classList.remove("selected");
+                        });
+                        li.classList.add("selected");
+
+                        refreshSettings();
+                    });
+                    if(i == selectedItem) li.classList.add("selected");
+
+                    let parent = document.createElement("div");
+                    parent.classList.add("bb-group");
+                    parent.classList.add("bb-parent");
+
+                    let hasLink = item.link !== undefined && item.link != "";
+                    let container = hasLink ? document.createElement("a") : parent;
+                    if(hasLink) {
+                        container.href = item.link;
+                        container.target = "_blank";
+                    }
+
+                    container.classList.add("bb-group");
+
+                    createBillboardItems(item).forEach(item => container.appendChild(item));
+
+                    if(hasLink) parent.appendChild(container);
+                    li.appendChild(parent);
+                    document.getElementById("items-content").appendChild(li);
+                }
+
+                refreshSettings();
             }
 
             function refreshSettings() {
+                // make sure all settings are hidden when no item is selected (checked after all hidden)
+                let optionals = document.getElementsByClassName("setting");
+                for(let i = 0; i < optionals.length; i++) optionals[i].classList.add("hidden");
+                document.getElementById("icon-help-text").classList.add("hidden");
 
-                document.getElementById("settings-content").innerText = JSON.stringify(config.groups[selected], null, 4);
-                console.log("refresh settings " + selected);
+                if(selectedFrame == -1 || selectedItem == -1) return;
+
+                document.querySelectorAll(".setting:not(.setting-optional)").forEach(function(node) {
+                    node.classList.remove("hidden");
+                });
+
+                let item = config.groups[selectedFrame][selectedItem];
+
+                document.getElementById("item-type").value = item.type == "both" ? (item.icon == undefined ? "text-image" : "text-icon") : item.type;
+                document.getElementById("item-link").value = item.link;
+                
+                refreshSettingInput("item-text", item.text);
+                refreshSettingInput("item-image", item.image);
+                refreshSettingInput("item-icon", item.icon);
+                refreshSettingInput("item-first", item.first);
+
+                if(item.icon !== undefined) document.getElementById("icon-help-text").classList.remove("hidden");
+            }
+
+            function refreshSettingInput(name, value) {
+                let elem = document.getElementById(name);
+                if(value !== undefined) {
+                    elem.value = value;
+                    elem.parentNode.classList.remove("hidden");
+                } else elem.parentNode.classList.add("hidden");
             }
 
             document.getElementById("frame-new").addEventListener("click", function() {
                 config.groups.push([]);
+                selectedFrame = config.groups.length - 1;
                 refreshAll();
             });
 
             document.getElementById("frame-up").addEventListener("click", function() {
-                if(selected == 0) return;
-                config.groups.swapItems(selected, --selected);
+                if(selectedFrame == -1) return;
+                config.groups.swapItems(selectedFrame, --selectedFrame);
                 refreshAll();
             });
 
             document.getElementById("frame-down").addEventListener("click", function() {
-                if(selected == config.groups.length - 1) return;
-                config.groups.swapItems(selected, ++selected);
+                if(selectedFrame >= config.groups.length - 1) return;
+                config.groups.swapItems(selectedFrame, ++selectedFrame);
                 refreshAll();
             });
 
             document.getElementById("frame-delete").addEventListener("click", function() {
-                if(selected < curr) curr--;
-                config.groups.splice(selected, 1);
+                config.groups.splice(selectedFrame, 1);
                 refreshAll();
+            });
+
+            document.getElementById("item-new").addEventListener("click", function() {
+                if(selectedFrame == -1) return;
+                config.groups[selectedFrame].push({
+                    "type": "text",
+                    "link": "",
+                    "text": ""
+                });
+                selectedItem = config.groups[selectedFrame].length - 1;
+                refreshFrame();
+            });
+
+            document.getElementById("item-up").addEventListener("click", function() {
+                if(selectedFrame == -1 || selectedItem == 0) return;
+                config.groups[selectedFrame].swapItems(selectedItem, --selectedItem);
+                refreshFrame();
+            });
+
+            document.getElementById("item-down").addEventListener("click", function() {
+                if(selectedFrame == -1 || selectedItem == config.groups[selectedFrame].length - 1) return;
+                config.groups[selectedFrame].swapItems(selectedItem, ++selectedItem);
+                refreshFrame();
+            });
+
+            document.getElementById("item-delete").addEventListener("click", function() {
+                if(selectedFrame == -1 || selectedItem == -1) return;
+                config.groups[selectedFrame].splice(selectedItem, 1);
+                refreshFrame();
             });
 
             Array.prototype.swapItems = function(a, b){
                 this[a] = this.splice(b, 1, this[a])[0];
                 return this;
             }
+
+            document.getElementById("item-type").addEventListener("input", function() {
+                if(selectedFrame == -1 || selectedItem == -1) return;
+                let item = config.groups[selectedFrame][selectedItem];
+
+                // kinda a hack, but the text & image/icon options both have a - in the name
+                item.type = this.value.indexOf('-') > -1 ? "both" : this.value;
+
+                if(this.value.includes("text")) {
+                    if(item.text == undefined) item.text = "";
+                    if(item.first == undefined) item.first = "text";
+
+                    if(this.value == "text-image") {
+                        if(item.image == undefined) item.image = "";
+                        item.icon = undefined;
+                    } else if(this.value == "text-icon") {
+                        if(item.icon == undefined) item.icon = "";
+                        item.image = undefined;
+                    } else {
+                        item.image = undefined;
+                        item.icon = undefined; 
+                        item.first = undefined;
+                    }
+                } else {
+                    if(this.value == "image") {
+                        if(item.image == undefined) item.image = "";
+                        item.icon = undefined;
+                    } else if(this.value == "icon") {
+                        if(item.icon == undefined) item.icon = "";
+                        item.image = undefined;
+                    }
+
+                    item.text = undefined;
+                    item.first = undefined;
+                }
+
+                refreshFrame();
+            });
+
+            document.getElementById("item-link").addEventListener("input", function() {
+                if(selectedFrame == -1 || selectedItem == -1) return;
+                config.groups[selectedFrame][selectedItem].link = this.value;
+                refreshFrame();
+            });
+
+            document.getElementById("item-text").addEventListener("input", function() {
+                if(selectedFrame == -1 || selectedItem == -1) return;
+                config.groups[selectedFrame][selectedItem].text = this.value;
+                refreshFrame();
+            });
+
+            let typingTimeout; // we will delay a bit so that typing doesn't spam http requests
+            document.getElementById("item-image").addEventListener("input", function() {
+                if(selectedFrame == -1 || selectedItem == -1) return;
+                if(typingTimeout !== undefined) clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(function() {
+                    config.groups[selectedFrame][selectedItem].image = document.getElementById("item-image").value;
+                    refreshFrame();
+                }, 500);
+            });
+
+            document.getElementById("item-icon").addEventListener("input", function() {
+                if(selectedFrame == -1 || selectedItem == -1) return;
+                config.groups[selectedFrame][selectedItem].icon = this.value;
+                refreshFrame();
+            });
+
+            document.getElementById("item-first").addEventListener("input", function() {
+                if(selectedFrame == -1 || selectedItem == -1) return;
+                config.groups[selectedFrame][selectedItem].first = this.value;
+                refreshFrame();
+            });
+
+            document.getElementById("interval-input").addEventListener("input", function() {
+                if(this.value < 1) this.value = 1;
+                config.interval = this.value;
+                refreshInterval();
+            });
         </script>
     </body>
 </html>

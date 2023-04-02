@@ -2,6 +2,19 @@
     --item-spacing: 0.5em;
     --item-inner-spacing: calc(var(--item-spacing) / 2);
     --image-height: 1.2em;
+
+    --body-bg-color: #ffffff;
+    --bb-bg-color: #f2f2f2;
+    --text-color: #0f0f0f;
+}
+
+/* This is a hack to guess the current youtube theme until truffle embeds support getting it directly */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --body-bg-color: #0f0f0f;
+        --bb-bg-color: #272727;
+        --text-color: #f1f1f1;
+    }
 }
 
 body {
@@ -38,9 +51,12 @@ body {
     margin: 0 var(--item-inner-spacing) 0 var(--item-inner-spacing);
 }
 
-.bb-group > a {
+a.bb-group {
     color: inherit;
     text-decoration: none;
+}
+
+a.bb-group:not(.bb-parent) {
     height: 100%;
 }
 
@@ -48,8 +64,8 @@ body {
     padding: 0 var(--item-spacing) 0 var(--item-spacing);
     height: 36px;
 
-    color: #0f0f0f;
-    background-color: #f2f2f2;
+    color: var(--text-color);
+    background-color: var(--bb-bg-color);
     border-radius: 10em;
 }
 
@@ -57,14 +73,6 @@ body {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-}
-
-/* This is a hack to guess the current youtube theme until truffle embeds support getting it directly */
-@media (prefers-color-scheme: dark) {
-    .bb-parent {
-        color: #f1f1f1;
-        background-color: #272727;
-    }
 }
 
 .hidden {

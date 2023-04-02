@@ -2,10 +2,10 @@
 Create a custom (and interactive) billboard underneath your youtube videos and livestreams!
 
 ## Todo List
-- Billboard Editor
+- Authentication & config saving in editor
 - Link share
 - Add css options to groups
-- Custom Background/Image instead of rounded youtube
+- Custom Background/Image
 - Change background color on link hover
 - Click minigame?
 
@@ -22,5 +22,5 @@ Create a custom (and interactive) billboard underneath your youtube videos and l
     "float": "right",
     "transition": "width 1s"
   }
-}```
-
+}
+```
