@@ -1,16 +1,17 @@
+LIBS=$(shell pkg-config --cflags --libs hiredis libcurl)
 SRC=main.c mongoose.c
 OBJ=$(SRC:%.c=%.o)
 
 CFLAGS=-g -Werror -I.
 
 .c.o:
-	$(CC) -c $(CFLAGS) $<
+	$(CC) -c $(CFLAGS) $< $(LIBS)
 
 billboard: $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) $(LIBS)
 
 clean:
-	rm -rf billboards $(OBJ)
+	rm -rf billboard $(OBJ)
 
 .DEFAULT_GOAL: billboard
 .PHONY: clean

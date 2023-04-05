@@ -10,7 +10,7 @@
     <body class="bb-body">
         <script type="text/javascript" src="billboard.js"></script>
         <script type="module">
-            import { embed } from "https://npm.tfl.dev/@trufflehq/sdk"
+            import { embed, org as orgClient, getAccessToken } from "https://npm.tfl.dev/@trufflehq/sdk"
 
             let groups = [];
             let curr = 0;
@@ -52,6 +52,39 @@
                 let group = groups[++curr % groups.length];
                 group.classList.remove("hidden");
                 embed.setSize(group.scrollWidth + "px", "36px");
+            }
+
+            // this is how you use spec compliant observables without legend
+            let orgClientSubscription = orgClient.observable.subscribe({
+                next: function(org) {
+                    if(org == undefined) return;
+
+                    getAccessToken().then(function(value) {
+                        fetch("/auth", {
+                            method: "POST",
+                            body: value
+                        }).finally(function() {
+                            connectSocket(org);
+                        });
+                    }).catch(function() {
+                        connectSocket(org);
+                    });
+
+                    orgClientSubscription.unsubscribe();
+                },
+                error: function(error) {
+                    console.error(error);
+                },
+                complete: function() {
+                }
+            });
+
+            function connectSocket(org) {
+                let socket = new WebSocket(encodeURI("ws://localhost:8000/api?org=" + org.id));
+
+                socket.addEventListener("message", function(event) {
+                    console.log("Message from server ", event.data);
+                });
             }
         </script>
     </body>
