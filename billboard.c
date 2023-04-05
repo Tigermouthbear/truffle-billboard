@@ -23,7 +23,7 @@
  */
 
 #define SESSION_TOKEN_LEN 64
-#define SESSION_MAX_AGE 30 // TODO: EXTEND THIS AFTER DEV
+#define SESSION_MAX_AGE 60 // TODO: EXTEND THIS AFTER DEV
 
 struct bb_conn { // holds websocket state
     struct mg_connection  *c;
@@ -33,31 +33,28 @@ struct bb_conn { // holds websocket state
     // used for bb_conn_list
     struct bb_conn *prev;
     struct bb_conn *next;
+
+    struct bb_conn_list *list;// current list its in
 };
 
 struct bb_conn_list {
-    struct bb_conn *first;
-    struct bb_conn *last;
+    struct bb_conn *head;
 };
 
 void conn_list_add(struct bb_conn_list *conn_list, struct bb_conn *conn) {
-    if(conn_list->first == NULL) conn_list->first = conn;
-
-    if(conn_list->last != NULL) {
-        conn->prev = conn_list->last;
-        conn_list->last->next = conn;
+    if(conn_list->head== NULL) {
+        conn_list->head = conn;
+    } else {
+        conn->next = conn_list->head;
+        conn_list->head->prev = conn;
+        conn_list->head = conn;
     }
-
-    conn_list->last = conn;
 }
 
 void conn_list_remove(struct bb_conn_list *conn_list, struct bb_conn *conn) {
-    if(conn_list->first == conn) conn_list->first = conn->next;
-    if(conn_list->last == conn) conn_list->last = conn->prev;
     if(conn->prev != NULL) conn->prev->next = conn->next;
     if(conn->next != NULL) conn->next->prev = conn->prev;
-    conn->prev = NULL;
-    conn->next = NULL;
+    if(conn == conn_list->head) conn_list->head = conn->next;
 }
 
 struct bb_server {
@@ -300,14 +297,13 @@ char* get_billboard_config(char *org_id) {
     return config;
 }
 
-void send_billboard_update(struct mg_connection *c, struct bb_conn *conn) {
-    char *config = get_billboard_config(conn->org_id);
+bool set_billboard_config(char* org_id, char* config) {
+    redisReply *reply = redisCommand(server.redis, "SET config:%s %b", org_id, config, strlen(config));
+    if(reply == NULL) return false;
 
-    mg_ws_printf(c, WEBSOCKET_OP_TEXT, "{\"type\":\"update\",\"admin\":%s,\"config\":%Q}",
-            conn->is_admin ? "true" : "false",
-            config == NULL ? "" : config);
-
-    if(config != NULL) free(config);
+    bool ok = is_reply_ok(reply);
+    freeReplyObject(reply);
+    return ok;
 }
 
 static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
@@ -375,13 +371,14 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
                 }
             }
 
-            struct bb_conn_list *conn_list = hashmap_get(&server.org_map, org_id, strlen(org_id));
+            struct bb_conn_list *conn_list = hashmap_get(&server.org_map, org_id, org_id_len);
             if(conn_list == NULL) {
                 conn_list = calloc(1, sizeof(struct bb_conn_list)); // this will be freed at exit during hashmap_iterate_free_conn_list
                 if(conn_list == NULL) {
                     mg_http_reply(c, 500, NULL, "Internal Server Error");
                     return;
                 }
+
                 hashmap_put(&server.org_map, org_id, org_id_len, conn_list);
             }
 
@@ -402,6 +399,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
             conn->org_id[org_id_len] = 0;
 
             conn->c = c;
+            conn->list = conn_list;
             conn->is_admin = is_admin;
 
             mg_ws_upgrade(c, hm, NULL);
@@ -411,51 +409,59 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data) {
                 return;
             }
 
-            hashmap_put(&server.conn_map, &c, sizeof(struct mg_connection*), conn);
+            hashmap_put(&server.conn_map, c, sizeof(struct mg_connection*), conn);
             conn_list_add(conn_list, conn);
 
-            send_billboard_update(c, conn);
+            // send current billboard data
+            char *config = get_billboard_config(conn->org_id);
+            mg_ws_printf(c, WEBSOCKET_OP_TEXT, "{\"type\":\"update\",\"admin\":%s,\"config\":%s}",
+                    is_admin ? "true" : "false",
+                    config == NULL ? "undefined" : config);
+            if(config != NULL) free(config);
         } else {
             struct mg_http_serve_opts opts = {.root_dir = "web"};
             mg_http_serve_dir(c, hm, &opts);
         }
     } else if(ev == MG_EV_WS_MSG) {
-        struct bb_conn *conn = hashmap_get(&server.conn_map, &c, sizeof(struct mg_connection*));
-        if(conn == NULL || !conn->is_admin) return;
+        struct mg_ws_message *wm = (struct mg_ws_message *) ev_data;
 
-        // TODO: handle admin config update commands here
-        struct bb_conn_list *conn_list = hashmap_get(&server.org_map, conn->org_id, strlen(conn->org_id));
-        if(conn_list != NULL) return;
-
-        struct bb_conn *it = conn_list->first;
-        while(it != NULL) {
-            mg_ws_printf(it->c, WEBSOCKET_OP_TEXT, "org_id: %s, admin: %d", it->org_id, it->is_admin);
-            it = it->next;
-        }
-        
-        /*struct mg_ws_message *wm = (struct mg_ws_message *) ev_data;
+        struct bb_conn *conn = hashmap_get(&server.conn_map, c, sizeof(struct mg_connection*));
+        if(conn == NULL || !conn->is_admin || conn->list == NULL) return;
 
         char *type = mg_json_get_str(wm->data, "$.type");
-        if(type == NULL) return;
+        if(type != NULL) {
+            if(strcmp(type, "update") == 0) {
+                int length;
+                int offset = mg_json_get(wm->data, "$.config", &length);
+                if(offset >= 0) {
+                    char config[length + 1];
+                    memcpy(config, wm->data.ptr + offset, length);
+                    config[length] = 0;
 
-        if(strcmp(type, "connect") == 0) {
-            char *access_token = mg_json_get_str(wm->data, "$.access_token");
-            bool is_admin = access_token != NULL ? mycelium_is_admin(access_token) : false;
-            if(access_token != NULL) free(access_token);
+                    set_billboard_config(conn->org_id, config);
+                }
+            }
 
-            printf("admin: %d\n", is_admin);
+            free(type);
         }
 
-        free(type);*/
+        // just forward all messages to all clients
+        struct bb_conn *it = conn->list->head;
+        while(it != NULL) {
+            mg_ws_send(it->c, wm->data.ptr, wm->data.len, WEBSOCKET_OP_TEXT);
+            it = it->next;
+        }
     } else if(ev == MG_EV_CLOSE) {
         if(!c->is_websocket) return;
 
-        struct bb_conn *conn = hashmap_get(&server.conn_map, &c, sizeof(struct mg_connection*));
-        if(conn != NULL) {
-            free(conn->org_id);
-            free(conn);
-            hashmap_remove(&server.conn_map, &c, sizeof(struct mg_connection*));
-        }
+        struct bb_conn *conn = hashmap_get(&server.conn_map, c, sizeof(struct mg_connection*));
+        if(conn == NULL) return;
+
+        conn_list_remove(conn->list, conn);
+
+        free(conn->org_id);
+        free(conn);
+        hashmap_remove(&server.conn_map, c, sizeof(struct mg_connection*));
     }
 }
 
@@ -477,7 +483,6 @@ static int hashmap_iterate_free_conn_list(void* const context, void* const value
 }
 
 int main() {
-    struct sigaction act = { 0 };
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, stop_server);
     signal(SIGTERM, stop_server);

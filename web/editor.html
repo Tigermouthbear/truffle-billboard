@@ -13,7 +13,7 @@ body {
 
 .editor-container {
     display: grid;
-    grid-template-areas: "frames items settings" "preview items other";
+    grid-template-areas: "top top top" "frames items settings" "preview items other";
     grid-template-rows: 1fr auto auto;
     grid-template-columns: 30% 30% auto;
     gap: 0.5em;
@@ -22,6 +22,10 @@ body {
 .editor-item {
     padding: 0.5em;
     border-radius: 0.25em;
+}
+
+#top {
+    grid-area: top;
 }
 
 #other-settings {
@@ -90,9 +94,6 @@ body {
 
 input, select {
     margin-left: 0.5em;
-
-    color: var(--text-color);
-    background-color: var(--body-bg-color);
 }
 
 #icon-help-text {
@@ -108,6 +109,25 @@ input, select {
 
     <body>
         <div class="editor-container">
+            <fieldset id="top" class="editor-item">
+                <legend>Billboard</legend>
+                <div style="float: right">
+                    <button style="z-index: -1;">
+                        <label for="import-upload">Import</label>
+                    </button>
+                    <input style="display: none;" type="file" id="import-upload" name="import-upload"/>
+                    <button id="export-button">Export</button>
+                    <button id="save-button">Save</button>
+                </div>
+                <div>
+                  <label for="share-input">Share Link:</label>
+                  <input name="share-input" id="share-input" type="url" placeholder="https://example.com" pattern="https://.*">
+                  <span> for</span>
+                  <input id="share-time" type="number" min="1" value="1">
+                  <span> mins</span>
+                  <button id="share-button">Share</button>
+                </div>
+            </fieldset>
             <fieldset id="frames" class="editor-item editable-list">
                 <legend>Select Frame</legend>
                 <ol id="frames-content"></ol>
@@ -197,16 +217,46 @@ input, select {
             let selectedFrame = -1;
             let selectedItem = -1; 
 
-            let xhr = new XMLHttpRequest();
-            xhr.open("GET", "http://localhost:8000/config.json");
-            xhr.responseType = "json";
-            xhr.onload = function() {
-                if(xhr.status == 200) {
-                    config = xhr.response;
-                    refreshAll();
-                }
-            };
-            xhr.send();
+            const org = new URLSearchParams(window.location.search).get("org");
+            if(org !== null && org !== "") {
+                const socket = new WebSocket(encodeURI("ws://localhost:8000/api?org=" + org));
+
+                socket.addEventListener("message", function(event) {
+                    const msg = JSON.parse(event.data);
+                    console.log(event.data);
+
+                    if(msg.type == "update" && msg.config !== undefined) {
+                        config = msg.config;
+                        refreshAll();
+                    }
+                });
+
+                document.getElementById("save-button").addEventListener("click", function() {
+                    socket.send(JSON.stringify({
+                        type: "update",
+                        config: config
+                    }));
+                });
+
+
+                const shareInput = document.getElementById("share-input");
+                const minsInput = document.getElementById("share-time");
+                document.getElementById("share-button").addEventListener("click", function() {
+                    const url = shareInput.value;
+                    if(url == undefined || url == "" || !shareInput.checkValidity()) {
+                        alert("Invalid link!");
+                        return;
+                    }
+
+                    socket.send(JSON.stringify({
+                        type: "link",
+                        link: url,
+                        timeout: minsInput.value * 60000
+                    }));
+
+                    shareInput.value = "";
+                });
+            }
 
             function refreshAll() {
                 // clear everything
@@ -227,9 +277,9 @@ input, select {
                 if(selectedFrame == -1 && config.groups.length > 0) selectedFrame = 0;
 
                 for(let i = 0; i < config.groups.length; i++) {
-                    let group = createBillboardGroup(config.groups[i]);
+                    const group = createBillboardGroup(config.groups[i]);
 
-                    let li = document.createElement("li");
+                    const li = document.createElement("li");
                     li.appendChild(group.cloneNode(true));
                     li.addEventListener("click", function() {
                         selectedFrame = i;
@@ -242,7 +292,7 @@ input, select {
                     });
                     if(i == selectedFrame) li.classList.add("selected");
 
-                    let frames = document.getElementById("frames-content")
+                    const frames = document.getElementById("frames-content")
                     frames.appendChild(li);
                     
                     group.classList.add("hidden");
@@ -263,7 +313,7 @@ input, select {
 
                     document.querySelector("#preview > .bb-parent:not(.hidden)").classList.add("hidden");
 
-                    let group = groups[++curr % groups.length];
+                    const group = groups[++curr % groups.length];
                     group.classList.remove("hidden");
 
                 }, (config.interval == undefined ? 30 : config.interval) * 1000);
@@ -273,7 +323,7 @@ input, select {
             function refreshFrame() {
                 if(selectedFrame == -1) return;
 
-                let group = createBillboardGroup(config.groups[selectedFrame]);
+                const group = createBillboardGroup(config.groups[selectedFrame]);
 
                 document.querySelectorAll("#frames-content > li > .bb-parent")[selectedFrame].replaceWith(group.cloneNode(true)); 
 
@@ -294,14 +344,14 @@ input, select {
 
                 if(selectedFrame == -1) return;
 
-                let items = config.groups[selectedFrame];
+                const items = config.groups[selectedFrame];
                 if(selectedItem >= items.length) selectedItem = items.length - 1;
                 if(selectedItem == -1 && items.length > 0) selectedItem = 0;
 
                 for(let i = 0; i < items.length; i++) {
-                    let item = items[i];
+                    const item = items[i];
 
-                    let li = document.createElement("li");
+                    const li = document.createElement("li");
                     li.addEventListener("click", function() {
                         selectedItem = i;
                         document.querySelectorAll("#items-content > .selected").forEach(function(node) {
@@ -313,12 +363,12 @@ input, select {
                     });
                     if(i == selectedItem) li.classList.add("selected");
 
-                    let parent = document.createElement("div");
+                    const parent = document.createElement("div");
                     parent.classList.add("bb-group");
                     parent.classList.add("bb-parent");
 
-                    let hasLink = item.link !== undefined && item.link != "";
-                    let container = hasLink ? document.createElement("a") : parent;
+                    const hasLink = item.link !== undefined && item.link != "";
+                    const container = hasLink ? document.createElement("a") : parent;
                     if(hasLink) {
                         container.href = item.link;
                         container.target = "_blank";
@@ -348,7 +398,7 @@ input, select {
                     node.classList.remove("hidden");
                 });
 
-                let item = config.groups[selectedFrame][selectedItem];
+                const item = config.groups[selectedFrame][selectedItem];
 
                 document.getElementById("item-type").value = item.type == "both" ? (item.icon == undefined ? "text-image" : "text-icon") : item.type;
                 document.getElementById("item-link").value = item.link;
@@ -356,13 +406,13 @@ input, select {
                 refreshSettingInput("item-text", item.text);
                 refreshSettingInput("item-image", item.image);
                 refreshSettingInput("item-icon", item.icon);
-                refreshSettingInput("item-first", item.first);
+                if(item.type == "both") refreshSettingInput("item-first", item.first == undefined ? "imgicon" : item.first);
 
                 if(item.icon !== undefined) document.getElementById("icon-help-text").classList.remove("hidden");
             }
 
             function refreshSettingInput(name, value) {
-                let elem = document.getElementById(name);
+                const elem = document.getElementById(name);
                 if(value !== undefined) {
                     elem.value = value;
                     elem.parentNode.classList.remove("hidden");
@@ -502,6 +552,44 @@ input, select {
                 if(this.value < 1) this.value = 1;
                 config.interval = this.value;
                 refreshInterval();
+            });
+
+            // Function to download data to a file
+            // https://stackoverflow.com/a/30832210
+            function download(data, filename, type) {
+                const file = new Blob([data], {type: type});
+                if (window.navigator.msSaveOrOpenBlob) // IE10+
+                    window.navigator.msSaveOrOpenBlob(file, filename);
+                else { // Others
+                    var a = document.createElement("a"),
+                            url = URL.createObjectURL(file);
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(function() {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);  
+                    }, 0); 
+                }
+            }
+            
+            document.getElementById("export-button").addEventListener("click", function() {
+                download(JSON.stringify(config, null, 2), "billboard.json", "application/json");
+            });
+
+            const importReader = new FileReader();
+            importReader.addEventListener("load", function() {
+                const json = JSON.parse(importReader.result);
+                config = json;
+                refreshAll();
+            });
+
+            document.getElementById("import-upload").addEventListener("change", function() {
+                const file = this.files[0];
+                if(file && file.type !== "application/json") return;
+
+                importReader.readAsText(file);
             });
         </script>
     </body>

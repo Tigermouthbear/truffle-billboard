@@ -7,57 +7,154 @@
         <link rel="stylesheet" href="style.css">
     </head>
 
-    <body class="bb-body">
+    <body id="embed-body">
+        <div class="hidden">
+            <div id="edit-button" class="bb-parent bb-group">
+                <i class="fa-solid fa-gear"></i>
+            </div>
+        </div>
+
+        <div id="billboard"></div>
+
+        <div id="edit-area" class="hidden">
+            <div>
+                <button id="edit-close"><i class="fa-solid fa-xmark"></i> Close</button>
+            </div>
+            <div id="editor"></div>
+        </div>
+        
         <script type="text/javascript" src="billboard.js"></script>
         <script type="module">
             import { embed, org as orgClient, getAccessToken } from "https://npm.tfl.dev/@trufflehq/sdk"
 
+// TODO: replace all hard coded urls with smthn else
+            let config;
             let groups = [];
-            let curr = 0;
+            let curr;
 
-            let xhr = new XMLHttpRequest();
-            xhr.open("GET", "http://localhost:8000/config.json");
-            xhr.responseType = "json";
-            xhr.onload = function() {
-                if(xhr.status == 200) {
-                    xhr.response.groups.forEach(function(items) {
-                        let group = createBillboardGroup(items);
-                        group.classList.add("hidden");
-                        groups.push(group);
-                        document.body.appendChild(group);
-                    });
+            let interval;
+            let timeout;
 
-                    groups[curr].classList.remove("hidden");
+            let orgId;
+            let editorOpen = false;
 
-                    let interval = (xhr.response.interval == undefined ? 30 : xhr.response.interval) * 1000;
+            let billboard = document.getElementById("billboard");
+            let editButton = document.getElementById("edit-button");
+            let editArea = document.getElementById("edit-area");
 
-                    // we need to wait for groups to load before resizing embed
-                    // we could use a resize observer, but thats pretty new and this works too
-                    // https://stackoverflow.com/questions/61774434/how-to-wait-for-element-to-load-completely-into-dom
-                    setTimeout(function() {
+            function focusBillboard(config) {
+                curr = 0;
+                if(interval !== undefined) clearInterval(interval);
+                if(timeout !== undefined) clearTimeout(timeout); // just in case two focuses occur within the timeout window
+
+                if(!editorOpen) {
+                    if(editButton.parentNode.scrollWidth > 0) {
                         embed.setStyles({
                             "margin": "12px 0 0 8px"
                         });
-                        embed.setSize(groups[curr].scrollWidth + "px", "36px");
-                        
-                        if(groups.length > 1) setInterval(focusGroup, interval);
+                    }
+                    embed.setSize(editButton.parentNode.scrollWidth + "px", "36px");
+                }
+                
+                groups.forEach(function(node) {
+                    node.remove();
+                });
+                groups = [];
+
+                config.groups.forEach(function(items) {
+                    let group = createBillboardGroup(items);
+                    group.classList.add("hidden");
+                    groups.push(group);
+                    billboard.appendChild(group);
+                });
+
+                if(groups.length > 0) {
+                    let time = (config.interval == undefined ? 30 : config.interval) * 1000;
+                    // we need to wait for groups to load before resizing embed
+                    // we could use a resize observer, but thats pretty new and this works too
+                    // https://stackoverflow.com/questions/61774434/how-to-wait-for-element-to-load-completely-into-dom
+                    timeout = setTimeout(function() {
+                        showNext();
+                        if(groups.length > 1) interval = setInterval(showNext, time);
                     }, 1000);
                 }
-            };
-            xhr.send();
-
-            function focusGroup() {
-                document.querySelector(".bb-parent:not(.hidden)").classList.add("hidden");
-
-                let group = groups[++curr % groups.length];
-                group.classList.remove("hidden");
-                embed.setSize(group.scrollWidth + "px", "36px");
             }
 
-            // this is how you use spec compliant observables without legend
+            function showNext() {
+                document.querySelectorAll("#billboard .bb-parent").forEach(function(node) {
+                    node.classList.add("hidden");
+                });
+
+                let group = groups[curr++ % groups.length];
+                group.classList.remove("hidden");
+
+                if(!editorOpen) embed.setSize((group.scrollWidth + editButton.parentNode.scrollWidth) + "px", "36px");
+            }
+
+            function showLink(url, timeout) {
+                focusBillboard({
+                    interval: 1,
+                    groups: [[{
+                        type: "both",
+                        link: url,
+                        text: url,
+                        icon: "fa-solid fa-link"
+                    }]]
+                });
+
+                setTimeout(function() {
+                    focusBillboard(config);
+                }, timeout);
+            }
+
+            editButton.addEventListener("click", function() {
+                editButton.classList.add("hidden");
+                billboard.classList.add("hidden");
+
+                let iframe = document.createElement("iframe");
+                iframe.src = "http://localhost:8000/editor.html?org=" + orgId;
+                document.getElementById("editor").appendChild(iframe); 
+                editArea.classList.remove("hidden");
+
+                if(interval !== undefined) clearInterval(interval);
+                if(timeout !== undefined) clearTimeout(timeout);
+
+                editorOpen = true;
+
+                embed.setStyles({
+                    "margin": "0px",
+                    "position": "fixed",
+                    "top": "0px",
+                    "left": "0px",
+                    "transition": "none",
+                    "z-index": "9999" // lol
+                });
+                embed.setSize("100%", "100%");
+            });
+
+            document.getElementById("edit-close").addEventListener("click", function() {
+                embed.setSize("0px", "36px");
+                embed.setStyles({
+                    "position": "static",
+                    "z-index": "auto",
+                    "transition": "width 1s"
+                });
+
+                editButton.classList.remove("hidden");
+                billboard.classList.remove("hidden");
+
+                document.querySelector("#editor iframe").remove();
+                editArea.classList.add("hidden");
+
+                editorOpen = false;
+
+                focusBillboard(config);
+            });
+
             let orgClientSubscription = orgClient.observable.subscribe({
                 next: function(org) {
                     if(org == undefined) return;
+                    orgId = org.id;
 
                     getAccessToken().then(function(value) {
                         fetch("/auth", {
@@ -83,7 +180,36 @@
                 let socket = new WebSocket(encodeURI("ws://localhost:8000/api?org=" + org.id));
 
                 socket.addEventListener("message", function(event) {
-                    console.log("Message from server ", event.data);
+                    console.log(event.data);
+
+                    let msg = JSON.parse(event.data);
+                    if(msg.type == "update") {
+                        if(msg.admin) editButton.parentNode.classList.remove("hidden");
+
+                        if(msg.config !== undefined) {
+                            /*if(config == undefined) setTimeout(function() {
+                                showLink("https://tigr.dev/", 10000);
+                                /*socket.send(JSON.stringify({
+                                    type: "update",
+                                    config: {
+                                        interval: 0,
+                                        groups: [[{
+                                            type: "text",
+                                            text: "TEST"
+                                        }]]
+                                    }
+                                }));
+                                socket.send('{"type":"update","admin":true,"config":{"interval":5,"groups":[[{"type":"image","link":"https://discord.gg/ludwig","image":"logos/discord.svg"},{"type":"image","link":"https://old.reddit.com/r/LudwigAhgren","image":"logos/reddit.svg"},{"type":"image","link":"https://www.instagram.com/ludwigahgren","image":"logos/instagram.svg"},{"type":"image","link":"https://www.tiktok.com/@ludwig","image":"logos/tiktok.svg"},{"type":"image","link":"https://www.twitter.com/ludwigahgren","image":"logos/twitter.svg"},{"type":"image","link":"https://www.twitch.tv/ludwig","image":"logos/twitch.svg"}],[{"type":"both","link":"https://discord.gg/bTdWHCS6QM","text":"Join my Discord!","image":"logos/discord.svg","first":"text"}],[{"type":"both","link":"https://streamelements.com/","text":"Donate TTS","icon":"fa-solid fa-rocket"}]]}}');
+                                console.log("sent");
+                            }, 5000);*/
+
+                            config = msg.config;
+                            console.log(config);
+                            focusBillboard(config);
+                        }
+                    } else if(msg.type == "link" && msg.link !== undefined && msg.timeout !== undefined) {
+                        showLink(msg.link, msg.timeout);
+                    }
                 });
             }
         </script>

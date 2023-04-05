@@ -1,5 +1,5 @@
 LIBS=$(shell pkg-config --cflags --libs hiredis libcurl)
-SRC=main.c mongoose.c
+SRC=billboard.c mongoose.c
 OBJ=$(SRC:%.c=%.o)
 
 CFLAGS=-g -Werror -I.
