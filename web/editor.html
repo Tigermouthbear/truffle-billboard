@@ -110,7 +110,7 @@ input, select {
     <body>
         <div class="editor-container">
             <fieldset id="top" class="editor-item">
-                <legend>Billboard</legend>
+                <legend>Actions</legend>
                 <div style="float: right">
                     <button style="z-index: -1;">
                         <label for="import-upload">Import</label>
@@ -219,13 +219,16 @@ input, select {
 
             const org = new URLSearchParams(window.location.search).get("org");
             if(org !== null && org !== "") {
-                const socket = new WebSocket(encodeURI("ws://localhost:8000/api?org=" + org));
+                const socket = new WebSocket(encodeURI("ws://" + location.host + "/api?org=" + org));
 
                 socket.addEventListener("message", function(event) {
                     const msg = JSON.parse(event.data);
-                    console.log(event.data);
-
                     if(msg.type == "update" && msg.config !== undefined) {
+                        // notify if not admin, only the first update msg has the admin field
+                        // so check if this is the first with config == undefined
+                        if(config == undefined && (msg.admin == undefined || !msg.admin))
+                            alert("Your session has expired, please refresh this page!");
+
                         config = msg.config;
                         refreshAll();
                     }
@@ -319,7 +322,6 @@ input, select {
                 }, (config.interval == undefined ? 30 : config.interval) * 1000);
             }
 
-            // TODO: make this just refresh selected frame/group
             function refreshFrame() {
                 if(selectedFrame == -1) return;
 

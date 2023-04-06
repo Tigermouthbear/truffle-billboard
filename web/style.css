@@ -5,6 +5,7 @@
 
     --body-bg-color: #ffffff;
     --bb-bg-color: #f2f2f2;
+    --bb-hover-color: #e5e5e5;
     --text-color: #0f0f0f;
 }
 
@@ -13,6 +14,7 @@
     :root {
         --body-bg-color: #0f0f0f;
         --bb-bg-color: #272727;
+        --bb-hover-color: #3f3f3f;
         --text-color: #f1f1f1;
     }
 }
@@ -44,6 +46,7 @@ input, select, button {
     display: inline-flex;
     align-items: center;
     line-height: 0;
+    overflow: hidden;
 }
 
 .bb-group > * {
@@ -70,6 +73,7 @@ input, select, button {
 
 #edit-button:hover {
     cursor: pointer;
+    /*background-color: var(--bb-hover-color); disabled bc not enabled on bb-group*/
 }
 
 a.bb-group {
@@ -102,16 +106,24 @@ a.bb-group:not(.bb-parent) {
 
 #edit-area {
     width: 100%;
-    height: 100%;
+    margin: 10vh 10vw;
 
     background-color: var(--body-bg-color);
     color: var(--text-color);
+    border: 1px solid var(--text-color);
+    border-radius: 0.25em;
 
     display: flex;
     flex-direction: column;
 }
 
+#edit-header {
+    border-bottom: 1px solid var(--text-color);
+    text-align: center;
+}
+
 #editor {
+    display: flex;
     flex: 1 0 auto;
 }
 

@@ -7,23 +7,8 @@
 #include "mongoose.h"
 #include "hashmap.h"
 
-// TODO: TEST AUTHENTICATION WITH NEW TEST USER THATS NOT ADMIN
-/*
- * SERVER TO CLIENT:
- *
- * update-
- * { "type": "update", "admin": true/false/undefined, "config": {...} }
- * // inits/refreshes the billboard content, on first update tells if admin controls should be shown in embed
- *
- * Redis Shit:
- * session:org_id:session_token access_token
- * config:org_id billboard_config
- * session_token timestamp (global stamp for when token expires)
- *
- */
-
 #define SESSION_TOKEN_LEN 64
-#define SESSION_MAX_AGE 60 // TODO: EXTEND THIS AFTER DEV
+#define SESSION_MAX_AGE 864000 // expire session in 10 days
 
 struct bb_conn { // holds websocket state
     struct mg_connection  *c;
@@ -185,7 +170,7 @@ bool mycelium_is_admin(char* access_token) {
             if(is_super_admin) break;
         }
     }
-    
+
     free(resp);
     free(query);
     free(org_id);
