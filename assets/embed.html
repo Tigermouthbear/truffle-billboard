@@ -26,7 +26,9 @@
         
         <script type="text/javascript" src="billboard.js"></script>
         <script type="module">
-            import { embed, org as orgClient, getAccessToken } from "https://npm.tfl.dev/@trufflehq/sdk"
+            import { initTruffleApp, getEmbed, getOrgClient, getAccessToken } from 'https://npm.tfl.dev/@trufflehq/sdk'
+
+            initTruffleApp();
 
             let config;
             let groups = [];
@@ -50,11 +52,11 @@
                 // make sure edit button is showing if present
                 if(!editorOpen) {
                     if(editButton.parentNode.scrollWidth > 0) {
-                        embed.setStyles({
+                        getEmbed().setStyles({
                             "margin": "12px 0 0 8px"
                         });
                     }
-                    embed.setSize(editButton.parentNode.scrollWidth + "px", "36px");
+                    getEmbed().setSize(editButton.parentNode.scrollWidth + "px", "36px");
                 }
                 
                 groups.forEach(function(node) {
@@ -87,24 +89,29 @@
                     node.classList.add("hidden");
                 });
 
-                const group = groups[curr++ % groups.length];
-                group.classList.remove("hidden");
-
+                let groupOffset = 0;
+                if(groups.length > 0) {
+                    const group = groups[curr++ % groups.length];
+                    group.classList.remove("hidden");
+                    groupOffset = group.scrollWidth;
+                }
+                
                 if(!editorOpen) {
-                    embed.setStyles({
+                    getEmbed().setStyles({
                         "margin": "12px 0 0 8px"
                     });
-                    embed.setSize((group.scrollWidth + editButton.parentNode.scrollWidth) + "px", "36px");
+                    getEmbed().setSize((groupOffset + editButton.parentNode.scrollWidth) + "px", "36px");
                 }
             }
 
-            function showLink(url, timeout) {
+            function showLink(url, text, timeout) {
+                const urlName = url.replace("https://", "");
                 focusBillboard({
                     interval: 1,
                     groups: [[{
                         type: "both",
                         link: url,
-                        text: url,
+                        text: text == undefined || text == "" ? urlName.length > 23 ? urlName.substring(0, 20) + "..." : urlName : text,
                         icon: "fa-solid fa-link"
                     }]]
                 });
@@ -127,7 +134,7 @@
                 
                 editorOpen = true;
 
-                embed.setStyles({
+                getEmbed().setStyles({
                     "margin": "0px",
                     "position": "fixed",
                     "top": "0px",
@@ -135,19 +142,14 @@
                     "transition": "none",
                     "z-index": "9999" // lol
                 });
-                embed.setSize("100%", "100%");
+                getEmbed().setSize("100%", "100%");
 
                 editArea.classList.remove("hidden");
             });
 
             document.getElementById("edit-close").addEventListener("click", function() {
-                embed.setSize("0px", "36px");
-                embed.setStyles({
-                    "position": "static",
-                    "z-index": "auto",
-                    "transition": "width 1s"
-                });
-
+                getEmbed().setSize("0px", "36px");
+                
                 editButton.classList.remove("hidden");
                 billboard.classList.remove("hidden");
 
@@ -159,14 +161,17 @@
                 // showNext needs to be delayed like above
                 if(timeout !== undefined) clearTimeout(timeout);
                 timeout = setTimeout(function() {
-                    embed.setStyles({
+                    getEmbed().setStyles({
+                        "position": "static",
+                        "z-index": "auto",
+                        "transition": "width 1s",
                         "margin": "12px 0 0 8px"
                     });
                     showNext();
                 }, 1000);
             });
 
-            const orgClientSubscription = orgClient.observable.subscribe({
+            const orgClientSubscription = getOrgClient().observable.subscribe({
                 next: function(org) {
                     if(org == undefined) return;
                     orgId = org.id;
@@ -200,7 +205,7 @@
                             focusBillboard(config);
                         }
                     } else if(msg.type == "link" && msg.link !== undefined && msg.timeout !== undefined) {
-                        showLink(msg.link, msg.timeout);
+                        showLink(msg.link, msg.text, msg.timeout);
                     }
                 });
             }

@@ -9,6 +9,9 @@
 body {
     color: var(--text-color);
     background-color: var(--body-bg-color);
+    min-height: calc(100% - 1em);
+    margin: 0;
+    padding: 0.5em;
 }
 
 .editor-container {
@@ -104,11 +107,18 @@ input, select {
 #icon-help-text > p {
     margin: 0;
 }
+
+#loading {
+    text-align: center;
+}
         </style>
     </head>
 
     <body>
-        <div class="editor-container">
+        <div id="loading">
+            Loading...
+        </div>
+        <div id="editor-content" class="editor-container hidden">
             <fieldset id="top" class="editor-item">
                 <legend>Actions</legend>
                 <div style="float: right">
@@ -120,16 +130,16 @@ input, select {
                     <button id="save-button">Save</button>
                 </div>
                 <div>
-                  <label for="share-input">Share Link:</label>
-                  <input name="share-input" id="share-input" type="url" placeholder="https://example.com" pattern="https://.*">
-                  <span> for</span>
-                  <input id="share-time" type="number" min="1" value="1">
-                  <span> mins</span>
-                  <button id="share-button">Share</button>
+                    <span>Share Link:</span>
+                    <input name="share-input-url" id="share-input-url" type="url" placeholder="https://example.com" pattern="https://.*">
+                    <input name="share-input-text" id="share-input-text" type="text" placeholder="Optional Text">
+                    <span> for</span><input id="share-time" type="number" min="1" value="1">
+                    <span> mins</span>
+                    <button id="share-button">Share</button>
                 </div>
             </fieldset>
             <fieldset id="frames" class="editor-item editable-list">
-                <legend>Select Frame</legend>
+                <legend>Edit Frames</legend>
                 <ol id="frames-content"></ol>
                 <div class="editable-controls">
                     <i id="frame-new" class="fa-solid fa-plus"></i>
@@ -145,7 +155,7 @@ input, select {
                 <legend>Preview</legend>
             </fieldset>
             <fieldset id="items" class="editor-item editable-list">
-                <legend>Select Item</legend>
+                <legend>Edit Items</legend>
                 <ol id="items-content"></ol>
                 <div class="editable-controls">
                     <i id="item-new" class="fa-solid fa-plus"></i>
@@ -158,7 +168,7 @@ input, select {
                 </div>
             </fieldset>
             <fieldset id="settings" class="editor-item">
-                <legend>Edit Item</legend>
+                <legend>Item Options</legend>
                 <div id="settings-content">
                     <div class="setting hidden">
                         <label for="item-type">Type:</label>
@@ -229,6 +239,9 @@ input, select {
                         if(config == undefined && (msg.admin == undefined || !msg.admin))
                             alert("Your session has expired, please refresh this page!");
 
+                        document.getElementById("loading").classList.add("hidden");
+                        document.getElementById("editor-content").classList.remove("hidden");
+
                         config = msg.config;
                         refreshAll();
                     }
@@ -242,22 +255,25 @@ input, select {
                 });
 
 
-                const shareInput = document.getElementById("share-input");
+                const shareInputUrl = document.getElementById("share-input-url");
+                const shareInputText = document.getElementById("share-input-text");
                 const minsInput = document.getElementById("share-time");
                 document.getElementById("share-button").addEventListener("click", function() {
-                    const url = shareInput.value;
-                    if(url == undefined || url == "" || !shareInput.checkValidity()) {
-                        alert("Invalid link!");
+                    const url = shareInputUrl.value;
+                    if(url == undefined || url == "" || !shareInputUrl.checkValidity()) {
+                        alert("Invalid link! Make sure it starts with https://");
                         return;
                     }
 
                     socket.send(JSON.stringify({
                         type: "link",
                         link: url,
+                        text: shareInputText.value,
                         timeout: minsInput.value * 60000
                     }));
 
-                    shareInput.value = "";
+                    shareInputUrl.value = "";
+                    shareInputText.value = "";
                 });
             }
 

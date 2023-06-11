@@ -6,12 +6,11 @@ Truffle Billboard is an interactive and customizable "billboard" or menu for you
 - https://github.com/Tigermouthbear/truffle-billboard
 - https://www.youtube.com/watch?v=jC-79QAyCFc
 
-## Code
-This project uses mongoose as the webserver and redis as the database/cache. The backend is written purely in C and the frontend is written in HTML/CSS/JS. Websockets are used as the main method of communication bewtween client and server.
-
-## Dependencies
-- libcurl
-- hiredis
+## TODOs before production
+- Reconnect embed after ws disconnect?
+- Figure out if admin check is actually working
+- Make billboard editor have of minimum height of 100% (i hate css)
+- Configure SSL
 
 ## Embed Config
 ```

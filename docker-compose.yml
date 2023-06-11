@@ -1,0 +1,17 @@
+version: "3.9"
+services:
+  redis:
+    image: redis
+    volumes: 
+      - redis:/data
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_HOSTNAME: redis
+      REDIS_PORT: 6379
+      NUM_THREADS: 4
+volumes:
+  redis:
+    driver: local

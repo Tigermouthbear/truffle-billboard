@@ -1,3 +1,7 @@
 truffle.secret.mjs
-*.o
-billboard
+
+build
+cmake-build-*
+.idea
+
+assets-min
