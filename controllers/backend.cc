@@ -40,7 +40,7 @@ static void isAdmin(const std::string &orgId, const std::string &accessToken, co
     req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
     req->addHeader("x-org-id", orgId);
     req->addHeader("x-access-token", accessToken);
-    req->setBody(R"({"query":"query RoleConnectionQuery ($input: RoleConnectionInput, $first: Int, $after: String, $last: Int, $before: String) { roleConnection(input: $input, first: $first, after: $after, last: $last, before: $before) { totalCount nodes { isSuperAdmin }}}","variables":{"input":{"orgId":")" + orgId + R"("}}})");
+    req->setBody(R"({"query":"query RoleConnectionQuery ($input: RoleConnectionInput, $first: Int, $after: String, $last: Int, $before: String) { roleConnection(input: $input, first: $first, after: $after, last: $last, before: $before) { totalCount nodes { slug }}}","variables":{"input":{"orgId":")" + orgId + R"("}}})");
 
     client->sendRequest(req, [callback](ReqResult result, const HttpResponsePtr &response) {
         if(result == ReqResult::Ok) {
@@ -50,7 +50,6 @@ static void isAdmin(const std::string &orgId, const std::string &accessToken, co
                 return;
             }
 
-            Json::FastWriter fastWriter;
             Json::Value data = (*root)["data"];
             if(!data.isObject()) {
                 callback(false);
@@ -72,10 +71,10 @@ static void isAdmin(const std::string &orgId, const std::string &accessToken, co
             for(Json::Value role: nodes) {
                 if(!role.isObject()) continue;
 
-                Json::Value isSuperAdmin = role["isSuperAdmin"];
-                if(!isSuperAdmin.isBool()) continue;
+                Json::Value slug = role["slug"];
+                if(!slug.isString()) continue;
 
-                if(isSuperAdmin.asBool()) {
+                if(slug.asString() == "admin") {
                     callback(true);
                     return;
                 }
@@ -89,10 +88,16 @@ static void isAdmin(const std::string &orgId, const std::string &accessToken, co
 void Auth::authenticate(const HttpRequestPtr &req, std::function<void (const HttpResponsePtr&)> &&callback) {
     std::string accessToken = std::string(req->body());
     std::string orgId = getOrgId(accessToken);
-    req->session()->insert(SESSION_KEY, Session { orgId, accessToken });
 
     HttpResponsePtr resp = HttpResponse::newHttpResponse();
-    resp->setStatusCode(HttpStatusCode::k200OK);
+
+    if(orgId == "") {
+        resp->setStatusCode(HttpStatusCode::k401Unauthorized);
+    } else {
+        req->session()->insert(SESSION_KEY, Session { orgId, accessToken });
+        resp->setStatusCode(HttpStatusCode::k200OK);
+    }
+
     callback(resp);
 }
 

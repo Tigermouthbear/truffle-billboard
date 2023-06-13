@@ -229,7 +229,7 @@ input, select {
 
             const org = new URLSearchParams(window.location.search).get("org");
             if(org !== null && org !== "") {
-                const socket = new WebSocket(encodeURI("ws://" + location.host + "/api?org=" + org));
+                const socket = new WebSocket(encodeURI("ws://" + location.host + "/api"));
 
                 socket.addEventListener("message", function(event) {
                     const msg = JSON.parse(event.data);
