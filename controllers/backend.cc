@@ -8,7 +8,6 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <json/writer.h>
-#include <memory>
 
 #define SESSION_KEY "SESSION"
 #define DEFAULT_CONFIG "{\"interval\":30,\"groups\":[]}"
