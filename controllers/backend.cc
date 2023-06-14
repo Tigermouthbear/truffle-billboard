@@ -8,6 +8,7 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <json/writer.h>
+#include <memory>
 
 #define SESSION_KEY "SESSION"
 #define DEFAULT_CONFIG "{\"interval\":30,\"groups\":[]}"
@@ -33,8 +34,6 @@ static std::string getOrgId(const std::string &accessToken) {
 
     Json::Value orgId = root["orgId"];
     if(!orgId.isString()) return "";
-
-    DEBUG_PRINTF("orgid=%s", orgId.asString().c_str());
 
     return orgId.asString();
 }
@@ -93,66 +92,53 @@ static void isAdmin(const std::string &orgId, const std::string &accessToken, co
     });
 }
 
-void Auth::authenticate(const HttpRequestPtr &req, std::function<void (const HttpResponsePtr&)> &&callback) {
-    std::string accessToken = std::string(req->body());
-    std::string orgId = getOrgId(accessToken);
-
-    HttpResponsePtr resp = HttpResponse::newHttpResponse();
-
-    if(orgId == "") {
-        resp->setStatusCode(HttpStatusCode::k401Unauthorized);
-    } else {
-        req->session()->insert(SESSION_KEY, Session { orgId, accessToken });
-        DEBUG_PRINTF("insert Session{orgId=%s, accessToken=%s}", orgId.c_str(), accessToken.c_str());
-
-        resp->setStatusCode(HttpStatusCode::k200OK);
-    }
-
-    callback(resp);
-}
-
 void Api::handleNewConnection(const HttpRequestPtr &req, const WebSocketConnectionPtr &conn) {
-    if(!req->session()->find(SESSION_KEY)) {
+    optional<std::string> accessTokenOptional = req->getOptionalParameter<std::string>("token");
+    if(!accessTokenOptional) {
+        DEBUG_PRINTF("no access token provided, closing...");
         conn->forceClose();
-        DEBUG_PRINTF("session not found! Closing connection...");
-    } else {
-        Session session = req->session()->get<Session>(SESSION_KEY);
-
-        drogon::app().getRedisClient()->execCommandAsync(
-            [session, conn, req](const nosql::RedisResult &r) {
-                std::string config = r.type() == nosql::RedisResultType::kString ? r.asString() : DEFAULT_CONFIG;
-                if(r.type() != nosql::RedisResultType::kString) {
-                    drogon::app().getRedisClient()->execCommandAsync(
-                        [](const nosql::RedisResult &r){},
-                        [](const std::exception &err){},
-                        "SET config:%s %s", session.orgId.c_str(), config.c_str()
-                    );
-                }
-
-                DEBUG_PRINTF("config=%s", config.c_str());
-
-                isAdmin(session.orgId, session.accessToken, [config, conn, req](bool admin) { 
-                    conn->send(R"({"type":"update","admin":)" + (std::string) (admin ? "true" : "false") + R"(,"config":)" + config + "}");
-                    DEBUG_PRINTF("sent config: admin=%s", admin ? "true" : "false");
-
-                    // little bit of cleanup to save on resources. only admins need their
-                    // session to last while ws connected because of the editor
-                    if(!admin) req->session()->erase(SESSION_KEY);
-                });
-            },
-            [](const std::exception &err) {
-                std::cerr << err.what();
-            },
-            "GET config:%s", session.orgId.c_str()
-        );
-
-        connections.try_emplace(session.orgId);
-        connections[session.orgId].push_back(conn);
-
-        conn->setContext(std::make_shared<Session>(std::move(session)));
-
-        DEBUG_PRINTF("added connection with Session{orgId=%s, accessToken=%s}", session.orgId.c_str(), session.accessToken.c_str());
+        return;
     }
+
+    std::string accessToken = accessTokenOptional.value();
+    std::string orgId = getOrgId(accessToken);
+    if(orgId == "") {
+        DEBUG_PRINTF("failed to get orgid from access token");
+        conn->forceClose();
+        return;
+    }
+
+    drogon::app().getRedisClient()->execCommandAsync(
+        [orgId, accessToken, conn](const nosql::RedisResult &r) {
+            std::string config = r.type() == nosql::RedisResultType::kString ? r.asString() : DEFAULT_CONFIG;
+            if(r.type() != nosql::RedisResultType::kString) {
+                drogon::app().getRedisClient()->execCommandAsync(
+                    [](const nosql::RedisResult &r){},
+                    [](const std::exception &err){},
+                    "SET config:%s %s", orgId.c_str(), config.c_str()
+                );
+            }
+
+            DEBUG_PRINTF("config=%s", config.c_str());
+
+            isAdmin(orgId, accessToken, [config, conn](bool admin) { 
+                conn->send(R"({"type":"update","admin":)" + (std::string) (admin ? "true" : "false") + R"(,"config":)" + config + "}");
+                DEBUG_PRINTF("sent config: admin=%s", admin ? "true" : "false");
+            });
+        },
+        [](const std::exception &err) {
+            std::cerr << err.what();
+        },
+        "GET config:%s", orgId.c_str()
+    );
+
+    connections.try_emplace(orgId);
+    connections[orgId].push_back(conn);
+
+    Session session = { orgId, accessToken };
+    conn->setContext(std::make_shared<Session>(std::move(session)));
+
+    DEBUG_PRINTF("added connection with Session{orgId=%s, accessToken=%s}", orgId.c_str(), accessToken.c_str());
 }
 
 void Api::handleNewMessage(const WebSocketConnectionPtr &conn, std::string &&message, const WebSocketMessageType &type) {

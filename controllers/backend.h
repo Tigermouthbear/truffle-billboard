@@ -15,15 +15,6 @@ namespace trufflebb {
         std::string accessToken;
     };
 
-    class Auth: public drogon::HttpController<Auth> {
-        public:
-            METHOD_LIST_BEGIN
-            ADD_METHOD_TO(Auth::authenticate, "/auth", Post);
-            METHOD_LIST_END
-
-            void authenticate(const HttpRequestPtr &req, std::function<void (const HttpResponsePtr&)> &&callback);
-    };
-
     class Api: public drogon::WebSocketController<Api> {
         private:
             std::unordered_map<std::string, std::vector<WebSocketConnectionPtr>> connections;

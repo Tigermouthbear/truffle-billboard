@@ -227,9 +227,9 @@ input, select {
             let selectedFrame = -1;
             let selectedItem = -1; 
 
-            const org = new URLSearchParams(window.location.search).get("org");
-            if(org !== null && org !== "") {
-                const socket = new WebSocket(encodeURI("ws://" + location.host + "/api"));
+            const token = new URLSearchParams(window.location.search).get("token");
+            if(token !== null && token !== "") {
+                const socket = new WebSocket(encodeURI("ws://" + location.host + "/api?token=" + token));
 
                 socket.addEventListener("message", function(event) {
                     const msg = JSON.parse(event.data);

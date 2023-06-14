@@ -37,7 +37,7 @@
             let interval;
             let timeout;
 
-            let orgId;
+            let token;
             let editorOpen = false;
 
             const billboard = document.getElementById("billboard");
@@ -129,7 +129,7 @@
                 billboard.classList.add("hidden");
 
                 const iframe = document.createElement("iframe");
-                iframe.src = "editor.html?org=" + orgId;
+                iframe.src = "editor.html?token=" + token;
                 document.getElementById("editor").appendChild(iframe); 
                 
                 editorOpen = true;
@@ -171,29 +171,13 @@
                 }, 1000);
             });
 
-            const orgClientSubscription = getOrgClient().observable.subscribe({
-                next: function(org) {
-                    if(org == undefined) return;
-                    orgId = org.id;
-
-                    getAccessToken().then(function(value) {
-                        fetch("/auth", {
-                            method: "POST",
-                            body: value
-                        }).finally(connectSocket);
-                    }).catch(connectSocket);
-
-                    orgClientSubscription.unsubscribe();
-                },
-                error: function(error) {
-                    console.error(error);
-                },
-                complete: function() {
-                }
+            getAccessToken().then(function(value) {
+                token = value;
+                connectSocket();
             });
 
             function connectSocket() {
-                const socket = new WebSocket(encodeURI("ws://" + location.host + "/api"));
+                const socket = new WebSocket(encodeURI("ws://" + location.host + "/api?token=" + token));
 
                 socket.addEventListener("message", function(event) {
                     const msg = JSON.parse(event.data);
