@@ -12,6 +12,12 @@
 #define SESSION_KEY "SESSION"
 #define DEFAULT_CONFIG "{\"interval\":30,\"groups\":[]}"
 
+#define DEBUG_PRINTF(...) { \
+    std::cout << "[DEBUG] "; \
+    std::fprintf(stdout, __VA_ARGS__); \
+    std::cout << std::endl; \
+}
+
 using namespace trufflebb;
 
 static std::string getOrgId(const std::string &accessToken) {
@@ -27,6 +33,8 @@ static std::string getOrgId(const std::string &accessToken) {
 
     Json::Value orgId = root["orgId"];
     if(!orgId.isString()) return "";
+
+    DEBUG_PRINTF("orgid=%s", orgId.asString().c_str());
 
     return orgId.asString();
 }
@@ -95,6 +103,8 @@ void Auth::authenticate(const HttpRequestPtr &req, std::function<void (const Htt
         resp->setStatusCode(HttpStatusCode::k401Unauthorized);
     } else {
         req->session()->insert(SESSION_KEY, Session { orgId, accessToken });
+        DEBUG_PRINTF("insert Session{orgId=%s, accessToken=%s}", orgId.c_str(), accessToken.c_str());
+
         resp->setStatusCode(HttpStatusCode::k200OK);
     }
 
@@ -102,8 +112,10 @@ void Auth::authenticate(const HttpRequestPtr &req, std::function<void (const Htt
 }
 
 void Api::handleNewConnection(const HttpRequestPtr &req, const WebSocketConnectionPtr &conn) {
-    if(!req->session()->find(SESSION_KEY)) conn->forceClose();
-    else {
+    if(!req->session()->find(SESSION_KEY)) {
+        conn->forceClose();
+        DEBUG_PRINTF("session not found! Closing connection...");
+    } else {
         Session session = req->session()->get<Session>(SESSION_KEY);
 
         drogon::app().getRedisClient()->execCommandAsync(
@@ -117,8 +129,11 @@ void Api::handleNewConnection(const HttpRequestPtr &req, const WebSocketConnecti
                     );
                 }
 
+                DEBUG_PRINTF("config=%s", config.c_str());
+
                 isAdmin(session.orgId, session.accessToken, [config, conn, req](bool admin) { 
                     conn->send(R"({"type":"update","admin":)" + (std::string) (admin ? "true" : "false") + R"(,"config":)" + config + "}");
+                    DEBUG_PRINTF("sent config: admin=%s", admin ? "true" : "false");
 
                     // little bit of cleanup to save on resources. only admins need their
                     // session to last while ws connected because of the editor
@@ -135,12 +150,16 @@ void Api::handleNewConnection(const HttpRequestPtr &req, const WebSocketConnecti
         connections[session.orgId].push_back(conn);
 
         conn->setContext(std::make_shared<Session>(std::move(session)));
+
+        DEBUG_PRINTF("added connection with Session{orgId=%s, accessToken=%s}", session.orgId.c_str(), session.accessToken.c_str());
     }
 }
 
 void Api::handleNewMessage(const WebSocketConnectionPtr &conn, std::string &&message, const WebSocketMessageType &type) {
     std::shared_ptr<Session> session = conn->getContext<Session>();
     if(session == nullptr) return;
+
+    DEBUG_PRINTF("recieved message: %s", message.c_str());
 
     isAdmin(session->orgId, session->accessToken, [this, session, message](bool admin) {
         if(!admin) return;
@@ -177,6 +196,7 @@ void Api::handleConnectionClosed(const WebSocketConnectionPtr &conn) {
     for(std::vector<WebSocketConnectionPtr>::iterator iter = vec.begin(); iter != vec.end(); ++iter) {
         if(*iter == conn) {
             vec.erase(iter);
+            DEBUG_PRINTF("closed connection with Session{orgId=%s, accessToken=%s}", session->orgId.c_str(), session->accessToken.c_str());
             break;
         }
     }
