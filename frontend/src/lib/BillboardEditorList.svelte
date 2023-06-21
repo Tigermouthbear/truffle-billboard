@@ -74,6 +74,7 @@
     }
 
     .list {
+        height: 100%;
         display: flex;
         flex-flow: column;
     }

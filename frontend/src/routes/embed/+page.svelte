@@ -1,4 +1,5 @@
 <head>
+    <title>Truffle Billboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
     <style>
         body {
@@ -86,6 +87,7 @@
             "top": "0px",
             "left": "0px",
             "transition": "none",
+            "background": "rgba(0, 0, 0, 0.5)",
             "z-index": "9999" // lol
         });
         getEmbed().setSize("100%", "100%");
@@ -96,6 +98,7 @@
         getEmbed().setSize("0px", "0px");
         getEmbed().setStyles({
             "position": "static",
+            "background": "none",
             "z-index": "auto", 
             "transition": "width 1s"
         });
@@ -104,10 +107,13 @@
 </script>
 
 <main style="--height: {theme.height}; --item-height: {theme.itemHeight}; --item-spacing: {theme.itemSpacing}; --item-inner-spacing: {theme.itemInnerSpacing}; --border-radius: {theme.borderRadius}; --light-background: {theme.lightBackground}; --dark-background: {theme.darkBackground}; --light-hover-background: {theme.lightHoverBackground}; --dark-hover-background: {theme.darkHoverBackground}; --light-text-color: {theme.lightTextColor}; --dark-text-color: {theme.darkTextColor}; --light-editor-background: {theme.lightEditorBackground}; --dark-editor-background: {theme.darkEditorBackground};">
-    <div class={editing ? "editing" : ""} bind:this={container}>
+    <div class={editing ? "editing" : "viewing"} bind:this={container}>
         {#if editing}
-            <p on:click={hideEditor} on:keydown={hideEditor}>Close</p>
-            <BillboardEditor {config} {socket} />
+            <div>
+                <button on:click={hideEditor}><i class="fa-solid fa-xmark"></i></button>
+                <p>Truffle Billboard Settings</p>
+            </div>
+            <BillboardEditor config={JSON.parse(JSON.stringify(config))} {socket} />
         {:else}
             {#if admin}
                 <span style="margin-right: var(--item-spacing);">
@@ -142,13 +148,33 @@
         }
     }
 
-    div {
+    div.viewing {
         display: inline-flex;
     }
 
     div.editing {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        overflow: scroll;
+
+        padding: 0.5em;
+        margin: 10vh 10vw;
+        height: 80vh;
+        border-radius: 0.2em;
+
         background: var(--editor-background);
         color: var(--text-color);
+    }
+
+    div.editing > div {
+        text-align: center;
+        line-height: 0;
+    }
+
+    div.editing > div > button {
+        float: right;
+        background: var(--editor-background);
+        color: var(--text-color);
+        cursor: pointer;
     }
 </style>

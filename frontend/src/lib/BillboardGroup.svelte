@@ -12,7 +12,7 @@
             {#if item.type == "text" && item.text !== undefined}
                 <p>{item.text}</p>
             {:else if item.type == "image" && item.image !== undefined}
-                <img src={item.image} />
+                <img src={item.image} alt="" />
             {:else if item.type == "icon" && item.icon !== undefined}
                 <i class={item.icon}></i>
             {:else if item.type == "both"}
@@ -23,7 +23,7 @@
                 {#if item.icon !== undefined}
                     <i class={item.icon}></i>
                 {:else if item.image !== undefined} 
-                    <img src={item.image} />
+                    <img src={item.image} alt="" />
                 {/if}
 
                 {#if item.first !== "text"}

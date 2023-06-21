@@ -100,6 +100,7 @@
             <button on:click={shareLink}>Share</button>
         </span>
     </fieldset>
+
     <fieldset style="grid-area: top;">
         <legend>Actions</legend>
         <span>
@@ -168,14 +169,14 @@
                 {#if currentItem.type === "text" || currentItem.type == "both"}
                     <div class="settings">
                         <label for="item-text">Text:</label>
-                        <input type="text" name="item-text" id="item-text" placeholder="Example" bind:value={currentItem.text} />
+                        <input type="text" name="item-text" id="item-text" placeholder="Example Text" bind:value={currentItem.text} />
                     </div>
                 {/if}
 
                 {#if currentItem.type === "image" || currentItem.type === "both"}
                     <div class="settings">
                         <label for="item-image">Image:</label>
-                        <input type="text" name="item-image" id="item-image" placeholder="url" bind:value={currentItem.image} />
+                        <input type="text" name="item-image" id="item-image" placeholder="Image URL" bind:value={currentItem.image} />
                     </div>
                 {/if}
 
@@ -187,10 +188,10 @@
                 {/if}                
 
                 {#if currentItem.type === "icon" || currentItem.type === "both"}
-                    <p style="font-size: 0.8em; margin: 0;">
+                    <p style="font-size: 0.8em;">
                     *Search <a href="https://fontawesome.com/search?o=r&m=free" target="_blank">fontawesome</a> icons,
                     then enter the icon's class string.
-                    Ex: "fa-solid fa-house" > <i class="fa-solid fa-house"></i>
+                    Ex: "fa-solid fa-house" = <i class="fa-solid fa-house"></i>
                     </p>
                 {/if}
             {/if}
@@ -215,6 +216,7 @@
 
 <style>
     div.editor {
+        flex: 1 1 auto;
         background: var(--editor-background);
         color: var(--text-color);
 
@@ -222,13 +224,17 @@
         grid-template-areas: "share share top" "frames items settings" "preview items other";
         grid-template-rows: auto 1fr auto;
         grid-template-columns: 30% 30% auto;
-        align-items: self-start;
         gap: 0.5em;
     }
 
     fieldset {
+        display: flex;
         padding: 0.5em;
         border-radius: 0.25em;
+    }
+
+    fieldset > span {
+        flex: 1 1 auto;
     }
 
     input[type="text"] {
@@ -241,7 +247,11 @@
 
     input, select, button {
         color: var(--text-color);
-        background-color: var(--body-bg-color);
+        background: var(--editor-background);
+    }
+
+    select, button {
+        cursor: pointer;
     }
 
     div.settings {
