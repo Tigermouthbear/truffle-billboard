@@ -9,7 +9,6 @@
 #include <drogon/HttpRequest.h>
 #include <json/writer.h>
 
-#define SESSION_KEY "SESSION"
 #define DEFAULT_CONFIG "{\"interval\":30,\"groups\":[]}"
 
 #define DEBUG_PRINTF(...) { \
