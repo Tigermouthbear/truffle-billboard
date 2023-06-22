@@ -1,12 +1,25 @@
-FROM drogonframework/drogon:latest
-
-RUN apt-get update; apt-get install -yqq minify
+FROM node:20-alpine as frontend
 
 WORKDIR /app
 
-COPY . .
+COPY frontend/package*.json .
 
-RUN cmake .; make; minify -r -o assets-min/ assets/
+RUN npm install
+
+COPY frontend /app
+
+RUN npm run build
+
+
+FROM drogonframework/drogon:latest as backend
+
+WORKDIR /app
+
+COPY backend /app
+
+RUN cmake -DCMAKE_BUILD_TYPE=Release . && make
+
+COPY --from=frontend /app/build assets/
 
 EXPOSE 8000
 

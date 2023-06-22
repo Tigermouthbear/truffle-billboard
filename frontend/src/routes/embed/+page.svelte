@@ -23,10 +23,7 @@
     let admin: boolean = false;
     let editing: boolean = false;
     let link: BillboardConfig | undefined;
-    let config: BillboardConfig = {
-        interval: 1,
-        groups: [[]]
-    };
+    let config: BillboardConfig | undefined;
     let theme: BillboardTheme = {
         height: "36px",
         itemHeight: "1.2em",
@@ -47,7 +44,7 @@
 
     initTruffleApp();
     getAccessToken().then((token) => {
-        socket = new WebSocket(encodeURI("ws://localhost:8000/api?token=" + token));
+        socket = new WebSocket(encodeURI((window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.location.host + "/api?token=" + token));
         socket.addEventListener("message", function(event) {
             const msg: BillboardApiMessage = JSON.parse(event.data);
             if(msg.type == "update") {
@@ -74,7 +71,7 @@
 
     let container: Element;
     const resizer = new ResizeObserver((_) => {
-        if(editing) return;
+        if(editing || config === undefined) return;
         getEmbed().setStyles({"margin": "12px 0 0 8px"});
         getEmbed().setSize(container.scrollWidth + "px", theme.height);
     });
@@ -124,7 +121,9 @@
                 </span>
             {/if}
 
-            <Billboard config={link === undefined ? config : link} />
+            {#if config !== undefined}
+                <Billboard config={link === undefined ? config : link} />
+            {/if}
         {/if}
     </div>
 </main>

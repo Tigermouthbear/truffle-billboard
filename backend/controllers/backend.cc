@@ -11,11 +11,15 @@
 
 #define DEFAULT_CONFIG "{\"interval\":30,\"groups\":[]}"
 
+#ifndef NDEBUG
 #define DEBUG_PRINTF(...) { \
     std::cout << "[DEBUG] "; \
     std::fprintf(stdout, __VA_ARGS__); \
     std::cout << std::endl; \
 }
+#else
+#define DEBUG_PRINTF(...) {}
+#endif
 
 using namespace trufflebb;
 

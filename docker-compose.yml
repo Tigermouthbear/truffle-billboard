@@ -4,7 +4,7 @@ services:
     image: redis
     volumes: 
       - redis:/data
-  web:
+  app:
     build: .
     ports:
       - "8000:8000"

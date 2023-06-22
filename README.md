@@ -8,14 +8,12 @@ Truffle Billboard is an interactive and customizable "billboard" or menu for you
 
 ## TODOs before production
 - Reconnect embed after ws disconnect?
-- Figure out if admin check is actually working
-- Make billboard editor have of minimum height of 100% (i hate css)
 - Configure SSL
 
 ## Embed Config
 ```
 {
-  "url": "http://localhost:8000/embed.html",
+  "url": "http://localhost:8000/embed",
   "authToken": "[REDACTED]",
   "contentPageType": "youtube",
   "parentQuerySelector": "#above-the-fold #title",
