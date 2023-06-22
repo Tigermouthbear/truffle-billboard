@@ -19,11 +19,12 @@
     import BillboardGroup from '$lib/BillboardGroup.svelte';
     import BillboardEditor from '$lib/BillboardEditor.svelte';
 
+    let token: string;
     let socket: WebSocket;
     let admin: boolean = false;
     let editing: boolean = false;
-    let link: BillboardConfig | undefined;
-    let config: BillboardConfig | undefined;
+    let link: BillboardConfig;
+    let config: BillboardConfig;
     let theme: BillboardTheme = {
         height: "36px",
         itemHeight: "1.2em",
@@ -43,9 +44,15 @@
     };
 
     initTruffleApp();
-    getAccessToken().then((token) => {
+    getAccessToken().then((value) => {
+        token = value; 
+        connect();
+    });
+
+    function connect(): void {
         socket = new WebSocket(encodeURI((window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.location.host + "/api?token=" + token));
-        socket.addEventListener("message", function(event) {
+
+        socket.addEventListener("message", (event) => {
             const msg: BillboardApiMessage = JSON.parse(event.data);
             if(msg.type == "update") {
                 if(msg.admin === true) admin = true;    
@@ -67,7 +74,9 @@
                 setTimeout(() => link = undefined, msg.timeout)
             }
         });
-    });
+
+        socket.addEventListener("close", () => setTimeout(connect, 60000));
+    }
 
     let container: Element;
     const resizer = new ResizeObserver((_) => {
@@ -77,7 +86,7 @@
     });
     onMount(async () => resizer.observe(container));
 
-    function showEditor() {
+    function showEditor(): void {
         getEmbed().setStyles({
             "margin": "0px",
             "position": "fixed",
@@ -91,7 +100,7 @@
         editing = true;
     }
 
-    function hideEditor() {
+    function hideEditor(): void {
         getEmbed().setSize("0px", "0px");
         getEmbed().setStyles({
             "position": "static",
@@ -112,7 +121,7 @@
             </div>
             <BillboardEditor config={JSON.parse(JSON.stringify(config))} {socket} />
         {:else}
-            {#if admin}
+            {#if admin && socket !== undefined && socket.readyState === socket.OPEN}
                 <span style="margin-right: var(--item-spacing);">
                     <BillboardGroup group={[{
                         type: "icon",

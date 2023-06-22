@@ -29,7 +29,7 @@
     let shareUrl: string;
     let shareText: string;
     let shareTime: number = 1;
-    function shareLink() {
+    function shareLink(): void {
         if(!/^https:\/\/.+$/.test(shareUrl)) {
             alert("Invalid link! Make sure it starts with https://");
             return;
@@ -45,7 +45,7 @@
         shareUrl = shareText = "";
     } 
 
-    function importConfig() {
+    function importConfig(): void {
         const file = this.files[0];
         if(file && file.type !== "application/json") return;
 
@@ -57,31 +57,31 @@
         importReader.readAsText(file);
     }
 
-    function exportConfig() {
+    function exportConfig(): void {
         download(JSON.stringify(config, null, 2), "billboard.json", "application/json");
     }
 
     // Function to download data to a file
     // https://stackoverflow.com/a/30832210
-    function download(data: string, filename: string, type: string) {
+    function download(data: string, filename: string, type: string): void {
         const file = new Blob([data], {type: type});
         if(window.navigator.msSaveOrOpenBlob) // IE10+
             window.navigator.msSaveOrOpenBlob(file, filename);
         else { // Others
-            var a = document.createElement("a"),
+            let a = document.createElement("a"),
                 url = URL.createObjectURL(file);
             a.href = url;
             a.download = filename;
             document.body.appendChild(a);
             a.click();
-            setTimeout(function() {
+            setTimeout(() => {
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);  
             }, 0); 
         }
     }
 
-    function saveConfig() {
+    function saveConfig(): void {
         socket.send(JSON.stringify({
             type: "update",
             config: config

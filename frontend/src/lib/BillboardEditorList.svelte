@@ -7,24 +7,24 @@
     export let create: () => any;
     export let selected: number = 0;
 
-    function add() {
+    function add(): void {
         list.push(create());
         selected = list.length - 1;
     }
 
-    function remove() {
+    function remove(): void {
         list.splice(selected, 1);
         if(selected >= list.length) selected = list.length - 1;
         list = list;
     }
 
-    function up() {
+    function up(): void {
         if(selected === 0) return;
         list[selected] = list.splice(selected - 1, 1, list[selected])[0];
         selected--;
     }
 
-    function down() {
+    function down(): void {
         if(selected >= list.length - 1) return;
         list[selected] = list.splice(selected + 1, 1, list[selected])[0];
         selected++;

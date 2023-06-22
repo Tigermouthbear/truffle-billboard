@@ -5,32 +5,32 @@
             {
                 "type": "image",
                 "link": "https://discord.gg/ludwig",
-                "image": "logos/discord.svg"
+                "image": "/logos/discord.svg"
             },
             {
                 "type": "image",
                 "link": "https://old.reddit.com/r/LudwigAhgren",
-                "image": "logos/reddit.svg"
+                "image": "/logos/reddit.svg"
             },
             {
                 "type": "image",
                 "link": "https://www.instagram.com/ludwigahgren",
-                "image": "logos/instagram.svg"
+                "image": "/logos/instagram.svg"
             },
             {
                 "type": "image",
                 "link": "https://www.tiktok.com/@ludwig",
-                "image": "logos/tiktok.svg"
+                "image": "/logos/tiktok.svg"
             },
             {
                 "type": "image",
                 "link": "https://www.twitter.com/ludwigahgren",
-                "image": "logos/twitter.svg"
+                "image": "/logos/twitter.svg"
             },
             {
                 "type": "image",
                 "link": "https://www.twitch.tv/ludwig",
-                "image": "logos/twitch.svg"
+                "image": "/logos/twitch.svg"
             }
         ],
         [
@@ -38,7 +38,7 @@
                 "type": "both",
                 "link": "https://discord.gg/ludwig",
                 "text": "Join my Discord!",
-                "image": "logos/discord.svg",
+                "image": "/logos/discord.svg",
                 "first": "text"
             }
         ],

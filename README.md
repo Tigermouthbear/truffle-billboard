@@ -6,10 +6,6 @@ Truffle Billboard is an interactive and customizable "billboard" or menu for you
 - https://github.com/Tigermouthbear/truffle-billboard
 - https://www.youtube.com/watch?v=jC-79QAyCFc
 
-## TODOs before production
-- Reconnect embed after ws disconnect?
-- Configure SSL
-
 ## Embed Config
 ```
 {
