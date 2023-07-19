@@ -1,5 +1,8 @@
 #include "backend.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdio>
 #include <drogon/HttpAppFramework.h>
 #include <drogon/HttpTypes.h>
 #include <drogon/WebSocketConnection.h>
@@ -8,8 +11,14 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <json/writer.h>
+#include <memory>
+#include <mutex>
+#include <shared_mutex>
+#include <stdio.h>
+#include <vector>
 
 #define DEFAULT_CONFIG "{\"interval\":30,\"groups\":[]}"
+#define CLEANUP_INTERVAL 30
 
 #ifndef NDEBUG
 #define DEBUG_PRINTF(...) { \
@@ -97,7 +106,6 @@ static void isAdmin(const std::string &orgId, const std::string &accessToken, co
 void Api::handleNewConnection(const HttpRequestPtr &req, const WebSocketConnectionPtr &conn) {
     optional<std::string> accessTokenOptional = req->getOptionalParameter<std::string>("token");
     if(!accessTokenOptional) {
-        DEBUG_PRINTF("no access token provided, closing...");
         conn->forceClose();
         return;
     }
@@ -105,52 +113,87 @@ void Api::handleNewConnection(const HttpRequestPtr &req, const WebSocketConnecti
     std::string accessToken = accessTokenOptional.value();
     std::string orgId = getOrgId(accessToken);
     if(orgId == "") {
-        DEBUG_PRINTF("failed to get orgid from access token");
         conn->forceClose();
         return;
     }
 
-    drogon::app().getRedisClient()->execCommandAsync(
-        [orgId, accessToken, conn](const nosql::RedisResult &r) {
-            std::string config = r.type() == nosql::RedisResultType::kString ? r.asString() : DEFAULT_CONFIG;
-            if(r.type() != nosql::RedisResultType::kString) {
-                drogon::app().getRedisClient()->execCommandAsync(
-                    [](const nosql::RedisResult &r){},
-                    [](const std::exception &err){},
-                    "SET config:%s %s", orgId.c_str(), config.c_str()
-                );
-            }
-
-            DEBUG_PRINTF("config=%s", config.c_str());
-
-            isAdmin(orgId, accessToken, [config, conn](bool admin) { 
-                conn->send(R"({"type":"update","admin":)" + (std::string) (admin ? "true" : "false") + R"(,"config":)" + config + "}");
-                DEBUG_PRINTF("sent config: admin=%s", admin ? "true" : "false");
-            });
-        },
-        [](const std::exception &err) {
-            std::cerr << err.what();
-        },
-        "GET config:%s", orgId.c_str()
-    );
-
-    connections.try_emplace(orgId);
-    connections[orgId].push_back(conn);
-
     Session session = { orgId, accessToken };
     conn->setContext(std::make_shared<Session>(std::move(session)));
 
-    DEBUG_PRINTF("added connection with Session{orgId=%s, accessToken=%s}", orgId.c_str(), accessToken.c_str());
+    std::string config;
+    {
+        std::shared_lock guard(billboardsMutex);
+
+        std::shared_ptr<Billboard> billboard;
+        std::unordered_map<std::string, std::shared_ptr<Billboard>>::iterator it = billboards.find(orgId);
+        if(it != billboards.end()) billboard = it->second;
+        else {
+            guard.unlock();
+            {
+                std::unique_lock guard(billboardsMutex);
+
+                // try again in case billboard set by another thread during transfer to unique lock
+                it = billboards.find(orgId);
+                if(it != billboards.end()) billboard = it->second;
+                else {
+                    billboard = std::make_shared<Billboard>();
+                    billboards[orgId] = billboard;
+                }
+            }
+            guard.lock();
+        }
+
+        {
+            std::unique_lock guard(billboard->connectionsMutex);
+            billboard->connections.push_back(conn);
+        }
+
+        bool stale;
+        {
+            std::shared_lock guard(billboard->configMutex);
+            stale = billboard->stale; 
+            if(!stale) config = billboard->config;
+        } 
+
+        if(stale) {
+            std::unique_lock guard(billboard->configMutex);
+
+            billboard->config = config = drogon::app().getRedisClient()->execCommandSync<std::string>(
+                [orgId](const nosql::RedisResult &r) {
+                    std::string config = r.type() == nosql::RedisResultType::kString ? r.asString() : DEFAULT_CONFIG;
+
+                    if(r.type() != nosql::RedisResultType::kString) {
+                        drogon::app().getRedisClient()->execCommandAsync(
+                            [](const nosql::RedisResult &r){},
+                            [](const std::exception &err){},
+                            "SET config:%s %s", orgId.c_str(), config.c_str()
+                        );
+                    }
+
+                    return config;
+                },
+                "GET config:%s", orgId.c_str()
+            );
+
+            billboard->stale = false;
+        }
+    }
+
+    conn->send(R"({"type":"update","config":)" + config + "}");
 }
 
 void Api::handleNewMessage(const WebSocketConnectionPtr &conn, std::string &&message, const WebSocketMessageType &type) {
     std::shared_ptr<Session> session = conn->getContext<Session>();
-    if(session == nullptr) return;
+    if(session == nullptr) {
+        conn->forceClose();
+        return;
+    }
 
-    DEBUG_PRINTF("recieved message: %s", message.c_str());
-
-    isAdmin(session->orgId, session->accessToken, [this, session, message](bool admin) {
-        if(!admin) return;
+    isAdmin(session->orgId, session->accessToken, [this, conn, session, message](bool admin) {
+        if(!admin) {
+            conn->forceClose(); // non admins should not be sending messages
+            return;
+        }
 
         Json::Value root;
         Json::Reader reader;
@@ -171,21 +214,76 @@ void Api::handleNewMessage(const WebSocketConnectionPtr &conn, std::string &&mes
             );
         }
 
-        for(WebSocketConnectionPtr conn: connections[session->orgId])
-            conn->send(message);
+        {
+            std::shared_lock guard(billboardsMutex);
+            std::shared_ptr<Billboard> billboard = billboards[session->orgId];
+
+            {
+                std::shared_lock guard(billboard->connectionsMutex);
+
+#ifndef NDEBUG
+                const auto& start = std::chrono::high_resolution_clock::now();
+#endif // !NDEBUG
+
+                for(WebSocketConnectionPtr conn: billboard->connections) {
+                    if(conn == nullptr || conn->disconnected()) continue;
+                    conn->send(message);
+                }
+
+#ifndef NDEBUG
+                const auto& stop = std::chrono::high_resolution_clock::now();
+                DEBUG_PRINTF("Sent about %ld updates in %ld milliseconds", billboard->connections.size(), std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count());
+#endif // !NDEBUG
+            }
+        }
     });
 }
 
 void Api::handleConnectionClosed(const WebSocketConnectionPtr &conn) {
-    std::shared_ptr<Session> session = conn->getContext<Session>();
-    if(session == nullptr) return;
+    conn->clearContext();
+}
 
-    std::vector<WebSocketConnectionPtr> vec = connections[session->orgId];
-    for(std::vector<WebSocketConnectionPtr>::iterator iter = vec.begin(); iter != vec.end(); ++iter) {
-        if(*iter == conn) {
-            vec.erase(iter);
-            DEBUG_PRINTF("closed connection with Session{orgId=%s, accessToken=%s}", session->orgId.c_str(), session->accessToken.c_str());
-            break;
+Api::Api(): cleanupThread([this]() {
+    while(true) {
+        for(int i = 0; i < CLEANUP_INTERVAL * 10; ++i) {
+            {
+                std::shared_lock guard(cleanupMutex);
+                if(!cleaning) return;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        std::shared_lock guard(billboardsMutex);
+        std::unordered_map<std::string, std::shared_ptr<Billboard>>::iterator it;
+        for(it = billboards.begin(); it != billboards.end(); ++it) {
+            std::shared_ptr<Billboard> billboard = it->second;
+            std::unique_lock guard(billboard->connectionsMutex);
+
+#ifndef NDEBUG
+            long before = billboard->connections.size();
+#endif // !NDEBUG
+
+            billboard->connections.erase(std::remove_if(
+                billboard->connections.begin(),
+                billboard->connections.end(),
+                [](WebSocketConnectionPtr conn) { return conn == nullptr || conn->disconnected(); }
+            ), billboard->connections.end());
+
+#ifndef NDEBUG
+            long after = billboard->connections.size();
+            DEBUG_PRINTF("%ld connections cleaned, %ld connections remaining", before - after, after);
+#endif // !NDEBUG
         }
     }
+}) {
+}
+
+Api::~Api() {
+    {
+        std::unique_lock guard(cleanupMutex);
+        cleaning = false;
+    }
+
+    cleanupThread.join();
 }

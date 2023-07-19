@@ -42,22 +42,15 @@
         lightEditorBackground: "#fff",
         darkEditorBackground: "#000"
     };
-
-    initTruffleApp();
-    getAccessToken().then((value) => {
-        token = value; 
-        connect();
-    });
-
+    let container: Element;
+    
     function connect(): void {
         socket = new WebSocket(encodeURI((window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.location.host + "/api?token=" + token));
 
         socket.addEventListener("message", (event) => {
             const msg: BillboardApiMessage = JSON.parse(event.data);
-            if(msg.type == "update") {
-                if(msg.admin === true) admin = true;    
-                config = msg.config;
-            } else if(msg.type == "link" && msg.link !== undefined && msg.timeout !== undefined && msg.link.startsWith("https://")) {
+            if(msg.type == "update") config = msg.config;
+            else if(msg.type == "link" && msg.link !== undefined && msg.timeout !== undefined && msg.link.startsWith("https://")) {
                 let urlName = msg.link.replace("https://", "");
                 if(urlName.endsWith("/")) urlName = urlName.substring(0, urlName.length - 1);
                 if(urlName.length > 23) urlName = urlName.substring(0, 20) + "...";
@@ -76,15 +69,7 @@
         });
 
         socket.addEventListener("close", () => setTimeout(connect, 60000));
-    }
-
-    let container: Element;
-    const resizer = new ResizeObserver((_) => {
-        if(editing || config === undefined) return;
-        getEmbed().setStyles({"margin": "12px 0 0 8px"});
-        getEmbed().setSize(container.scrollWidth + "px", theme.height);
-    });
-    onMount(async () => resizer.observe(container));
+    } 
 
     function showEditor(): void {
         getEmbed().setStyles({
@@ -110,6 +95,33 @@
         });
         editing = false;
     }
+
+    onMount(async () => {
+        const truffleApp = initTruffleApp();
+
+        getAccessToken().then((value) => {
+            token = value;
+            connect();
+        });
+
+        const resizeObserver = new ResizeObserver((_) => {
+            if(editing || config === undefined) return;
+            getEmbed().setStyles({"margin": "12px 0 0 8px"});
+            getEmbed().setSize(container.scrollWidth + "px", theme.height);
+        });
+        resizeObserver.observe(container);
+
+        const roleObserver = truffleApp.orgUser.observable.subscribe({
+            next: (orgUser) => {
+                admin = orgUser.roleConnection.nodes.find((role) => role.slug === "admin") !== undefined;
+            }
+        });
+
+        return () => {
+            resizeObserver.disconnect();
+            roleObserver.unsubscribe();
+        }
+    });
 </script>
 
 <main style="--height: {theme.height}; --item-height: {theme.itemHeight}; --item-spacing: {theme.itemSpacing}; --item-inner-spacing: {theme.itemInnerSpacing}; --border-radius: {theme.borderRadius}; --light-background: {theme.lightBackground}; --dark-background: {theme.darkBackground}; --light-hover-background: {theme.lightHoverBackground}; --dark-hover-background: {theme.darkHoverBackground}; --light-text-color: {theme.lightTextColor}; --dark-text-color: {theme.darkTextColor}; --light-editor-background: {theme.lightEditorBackground}; --dark-editor-background: {theme.darkEditorBackground};">

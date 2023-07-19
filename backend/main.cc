@@ -39,14 +39,13 @@ std::string getIpFromHostname(const char *hostname) {
 int main() {
     drogon::app().addListener("0.0.0.0", 8000)
     .createRedisClient(getIpFromHostname(getEnvString("REDIS_HOSTNAME", "0.0.0.0")), getEnvInteger("REDIS_PORT", 6379))
-    .enableSession(std::chrono::hours(24))
     .setDocumentRoot("assets")
     .setImplicitPageEnable(true)
     .setGzipStatic(true)
     .setBrStatic(true)
     .setStaticFilesCacheTime(0) // always keep static files in memory
     .setThreadNum(getEnvInteger("NUM_THREADS", 4))
-    .setMaxConnectionNum(500000)
+    .setMaxConnectionNum(1000000)
     .run();
     return 0;
 }
